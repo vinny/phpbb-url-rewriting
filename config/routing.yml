@@ -1,0 +1,4 @@
+vinny_urlrewriting_sitemap:
+    path: /sitemap.xml
+    defaults: { _controller: vinny.urlrewriting.controller.sitemap:index }
+    methods: [GET]

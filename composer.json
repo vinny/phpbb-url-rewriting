@@ -1,0 +1,29 @@
+{
+    "name": "vinny/urlrewriting",
+    "type": "phpbb-extension",
+    "description": "Friendly URLs and Sitemap for phpBB 3",
+    "homepage": "https://github.com/vinny",
+    "version": "1.0.0",
+    "time": "2026-02-16",
+    "license": "GPL-2.0-only",
+    "authors": [
+        {
+            "name": "Vinny",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": ">=7.2.0",
+        "phpbb/phpbb": ">=3.3.0"
+    },
+    "suggest": {
+        "ext-intl": "For better URL cleaner/transliteration support"
+    },
+    "extra": {
+        "day-mode-compatible": true,
+        "display-name": "Advanced URL Rewriting",
+        "soft-require": {
+            "phpbb/phpbb": ">=3.3.0"
+        }
+    }
+}

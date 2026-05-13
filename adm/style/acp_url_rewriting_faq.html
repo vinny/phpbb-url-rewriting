@@ -1,0 +1,42 @@
+<!-- INCLUDE overall_header.html -->
+
+<h1>{L_ACP_URLREWRITING_FAQ}</h1>
+
+<p>{L_ACP_URLREWRITING_FAQ_EXPLAIN}</p>
+
+<!-- BEGIN faq_block -->
+	<fieldset>
+		<legend>{faq_block.BLOCK_TITLE}</legend>
+
+		<!-- IF faq_block.S_SERVER_SWITCH -->
+			<dl>
+				<dt><label for="faq_fallback_server_type">{L_ACP_URLREWRITING_SELECT_SERVER}:</label></dt>
+				<dd>
+					<select id="faq_fallback_server_type" class="urlrewriting-server-select" data-apache-target="faq_fallback_apache_config" data-nginx-target="faq_fallback_nginx_config">
+						<option value="apache">{L_ACP_URLREWRITING_SERVER_APACHE}</option>
+						<option value="nginx">{L_ACP_URLREWRITING_SERVER_NGINX}</option>
+					</select>
+				</dd>
+			</dl>
+		<!-- ENDIF -->
+
+		<!-- BEGIN faq_row -->
+			<!-- IF faq_block.faq_row.S_CODE_BLOCK -->
+				<div id="faq_fallback_{faq_block.faq_row.CODE_TYPE}_config"<!-- IF faq_block.faq_row.S_NGINX_CODE --> hidden<!-- ENDIF -->>
+					<h2>{faq_block.faq_row.FAQ_QUESTION}</h2>
+					<textarea rows="16" cols="80" readonly>{faq_block.faq_row.FAQ_ANSWER}</textarea>
+				</div>
+			<!-- ELSE -->
+				<h2>{faq_block.faq_row.FAQ_QUESTION}</h2>
+				<p>{faq_block.faq_row.FAQ_ANSWER}</p>
+			<!-- ENDIF -->
+
+			<!-- IF not faq_block.faq_row.S_LAST_ROW -->
+				<hr>
+			<!-- ENDIF -->
+		<!-- END faq_row -->
+	</fieldset>
+<!-- END faq_block -->
+
+<!-- INCLUDEJS urlrewriting_acp.js -->
+<!-- INCLUDE overall_footer.html -->

@@ -1,0 +1,40 @@
+services:
+    vinny.urlrewriting.listener:
+        class: vinny\urlrewriting\event\listener
+        arguments:
+            - '@config'
+            - '@template'
+            - '@user'
+            - '@vinny.urlrewriting.helper'
+            - '@dbal.conn'
+            - '@request'
+            - '%core.root_path%'
+            - '%core.php_ext%'
+        tags:
+            - { name: event.listener }
+
+    vinny.urlrewriting.controller.sitemap:
+        class: vinny\urlrewriting\controller\sitemap
+        arguments:
+            - '@config'
+            - '@dbal.conn'
+            - '@vinny.urlrewriting.helper'
+            - '%core.root_path%'
+            - '%core.php_ext%'
+
+    vinny.urlrewriting.helper:
+        class: vinny\urlrewriting\helper\url_helper
+        arguments:
+            - '@config'
+            - '%core.php_ext%'
+
+    vinny.urlrewriting.textformatter.quote_helper:
+        class: vinny\urlrewriting\textformatter\s9e\quote_helper
+        decorates: text_formatter.s9e.quote_helper
+        arguments:
+            - '@user'
+            - '%core.root_path%'
+            - '%core.php_ext%'
+            - '@dbal.conn'
+            - '@config'
+            - '@vinny.urlrewriting.helper'

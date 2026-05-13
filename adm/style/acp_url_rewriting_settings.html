@@ -1,0 +1,52 @@
+<!-- INCLUDE overall_header.html -->
+
+<h1>{L_ACP_URLREWRITING_SETTINGS}</h1>
+
+<p>{L_ACP_URLREWRITING_SETTINGS_EXPLAIN}</p>
+
+<form id="acp_urlrewriting_settings" method="post" action="{U_ACTION}">
+
+<fieldset>
+	<legend>{L_ACP_URLREWRITING_SETTINGS}</legend>
+	<dl>
+		<dt><label for="vinny_url_rewrite_enable">{L_VINNY_URL_REWRITE_ENABLE}:</label><br /><span>{L_VINNY_URL_REWRITE_ENABLE_EXPLAIN}</span></dt>
+		<dd><label><input type="radio" class="radio" name="vinny_url_rewrite_enable" value="1" <!-- IF VINNY_URL_REWRITE_ENABLE --> checked="checked"<!-- ENDIF --> /> {L_YES}</label>
+			<label><input type="radio" class="radio" name="vinny_url_rewrite_enable" value="0" <!-- IF not VINNY_URL_REWRITE_ENABLE --> checked="checked"<!-- ENDIF --> /> {L_NO}</label></dd>
+	</dl>
+    <dl>
+		<dt><label>{L_VINNY_URL_REWRITE_MODE}:</label><br /><span>{L_VINNY_URL_REWRITE_MODE_EXPLAIN}</span></dt>
+		<dd><label><input type="radio" class="radio" name="vinny_url_rewrite_mode" value="0" <!-- IF not VINNY_URL_REWRITE_MODE --> checked="checked"<!-- ENDIF --> /> {L_VINNY_URL_MODE_SIMPLE}</label>
+			<label><input type="radio" class="radio" name="vinny_url_rewrite_mode" value="1" <!-- IF VINNY_URL_REWRITE_MODE --> checked="checked"<!-- ENDIF --> /> {L_VINNY_URL_MODE_ADVANCED}</label></dd>
+	</dl>
+    <dl>
+		<dt><label for="vinny_url_translit_enable">{L_VINNY_URL_TRANSLIT_ENABLE}:</label><br /><span>{L_VINNY_URL_TRANSLIT_ENABLE_EXPLAIN}</span></dt>
+		<dd><label><input type="radio" class="radio" name="vinny_url_translit_enable" value="1" <!-- IF VINNY_URL_TRANSLIT_ENABLE --> checked="checked"<!-- ENDIF --> /> {L_YES}</label>
+			<label><input type="radio" class="radio" name="vinny_url_translit_enable" value="0" <!-- IF not VINNY_URL_TRANSLIT_ENABLE --> checked="checked"<!-- ENDIF --> /> {L_NO}</label></dd>
+	</dl>
+	<dl>
+		<dt><label for="vinny_url_sitemap_enable">{L_VINNY_URL_SITEMAP_ENABLE}:</label><br /><span>{L_VINNY_URL_SITEMAP_ENABLE_EXPLAIN}</span></dt>
+		<dd><label><input type="radio" class="radio" name="vinny_url_sitemap_enable" value="1" <!-- IF VINNY_URL_SITEMAP_ENABLE --> checked="checked"<!-- ENDIF --> /> {L_YES}</label>
+			<label><input type="radio" class="radio" name="vinny_url_sitemap_enable" value="0" <!-- IF not VINNY_URL_SITEMAP_ENABLE --> checked="checked"<!-- ENDIF --> /> {L_NO}</label></dd>
+	</dl>
+
+    <dl>
+		<dt><label for="vinny_url_opengraph_enable">{L_VINNY_URL_OPENGRAPH_ENABLE}:</label><br /><span>{L_VINNY_URL_OPENGRAPH_ENABLE_EXPLAIN}</span></dt>
+		<dd><label><input type="radio" class="radio" name="vinny_url_opengraph_enable" value="1" <!-- IF VINNY_URL_OPENGRAPH_ENABLE --> checked="checked"<!-- ENDIF --> /> {L_YES}</label>
+			<label><input type="radio" class="radio" name="vinny_url_opengraph_enable" value="0" <!-- IF not VINNY_URL_OPENGRAPH_ENABLE --> checked="checked"<!-- ENDIF --> /> {L_NO}</label></dd>
+	</dl>
+    <dl>
+		<dt><label for="vinny_url_redirect_enable">{L_VINNY_URL_REDIRECT_ENABLE}:</label><br /><span>{L_VINNY_URL_REDIRECT_ENABLE_EXPLAIN}</span></dt>
+		<dd><label><input type="radio" class="radio" name="vinny_url_redirect_enable" value="1" <!-- IF VINNY_URL_REDIRECT_ENABLE --> checked="checked"<!-- ENDIF --> /> {L_YES}</label>
+			<label><input type="radio" class="radio" name="vinny_url_redirect_enable" value="0" <!-- IF not VINNY_URL_REDIRECT_ENABLE --> checked="checked"<!-- ENDIF --> /> {L_NO}</label></dd>
+	</dl>
+</fieldset>
+
+<fieldset class="submit-buttons">
+	<input class="button1" type="submit" id="submit" name="submit" value="{L_SUBMIT}" />&nbsp;
+	<input class="button2" type="reset" id="reset" name="reset" value="{L_RESET}" />
+	{S_FORM_TOKEN}
+</fieldset>
+
+</form>
+
+<!-- INCLUDE overall_footer.html -->
