@@ -12,7 +12,7 @@ namespace vinny\urlrewriting\textformatter\s9e;
 
 if (!defined('IN_PHPBB'))
 {
-    exit;
+	exit;
 }
 
 class quote_helper extends \phpbb\textformatter\s9e\quote_helper
@@ -71,32 +71,36 @@ class quote_helper extends \phpbb\textformatter\s9e\quote_helper
 
 	protected function get_friendly_post_url($post_id)
 	{
+		$post_id = (int) $post_id;
+
 		if (empty($this->config['vinny_url_rewrite_enable']))
 		{
 			return null;
 		}
 
-		if (isset($this->cache[$post_id]))
+		if (array_key_exists($post_id, $this->cache))
 		{
 			return $this->cache[$post_id];
 		}
 
 		$sql = 'SELECT t.topic_id, t.topic_title
-			FROM ' . POSTS_TABLE . ' p, ' . TOPICS_TABLE . ' t
-			WHERE p.post_id = ' . (int) $post_id . '
-				AND t.topic_id = p.topic_id';
+			FROM ' . POSTS_TABLE . ' p
+			JOIN ' . TOPICS_TABLE . ' t ON t.topic_id = p.topic_id
+			WHERE p.post_id = ' . (int) $post_id;
 		$result = $this->db->sql_query($sql, 600);
 		$row = $this->db->sql_fetchrow($result);
 		$this->db->sql_freeresult($result);
 
 		if ($row)
 		{
-            $friendly_path = $this->url_helper->generate_post_link($post_id, $row['topic_id'], $row['topic_title']);
+			$friendly_path = $this->url_helper->generate_post_link($post_id, $row['topic_id'], $row['topic_title']);
 			$url = generate_board_url() . '/' . $friendly_path;
 			$this->cache[$post_id] = $url;
 
 			return $url;
 		}
+
+		$this->cache[$post_id] = null;
 
 		return null;
 	}

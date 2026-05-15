@@ -10,7 +10,7 @@
 
 		<!-- IF faq_block.S_SERVER_SWITCH -->
 			<dl>
-				<dt><label for="faq_fallback_server_type">{L_ACP_URLREWRITING_SELECT_SERVER}:</label></dt>
+				<dt><label for="faq_fallback_server_type">{L_ACP_URLREWRITING_SELECT_SERVER}{L_COLON}</label></dt>
 				<dd>
 					<select id="faq_fallback_server_type" class="urlrewriting-server-select" data-apache-target="faq_fallback_apache_config" data-nginx-target="faq_fallback_nginx_config">
 						<option value="apache">{L_ACP_URLREWRITING_SERVER_APACHE}</option>
@@ -28,15 +28,15 @@
 				</div>
 			<!-- ELSE -->
 				<h2>{faq_block.faq_row.FAQ_QUESTION}</h2>
-				<p>{faq_block.faq_row.FAQ_ANSWER}</p>
+				<div>{faq_block.faq_row.FAQ_ANSWER}</div>
 			<!-- ENDIF -->
 
 			<!-- IF not faq_block.faq_row.S_LAST_ROW -->
-				<hr>
+				<hr />
 			<!-- ENDIF -->
 		<!-- END faq_row -->
 	</fieldset>
 <!-- END faq_block -->
 
-<!-- INCLUDEJS urlrewriting_acp.js -->
+<!-- INCLUDEJS @vinny_urlrewriting/urlrewriting_acp.js -->
 <!-- INCLUDE overall_footer.html -->

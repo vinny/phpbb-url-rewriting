@@ -9,38 +9,38 @@
 <fieldset>
 	<legend>{L_ACP_URLREWRITING_SITEMAP}</legend>
 	<dl>
-		<dt><label for="vinny_url_sitemap_cache_time">{L_VINNY_URL_SITEMAP_CACHE_TIME}:</label><br /><span>{L_VINNY_URL_SITEMAP_CACHE_TIME_EXPLAIN}</span></dt>
-		<dd><input type="number" name="vinny_url_sitemap_cache_time" value="{VINNY_URL_SITEMAP_CACHE_TIME}" min="0" /></dd>
+		<dt><label for="vinny_url_sitemap_cache_time">{L_VINNY_URL_SITEMAP_CACHE_TIME}{L_COLON}</label><br /><span>{L_VINNY_URL_SITEMAP_CACHE_TIME_EXPLAIN}</span></dt>
+		<dd><input type="number" id="vinny_url_sitemap_cache_time" name="vinny_url_sitemap_cache_time" value="{VINNY_URL_SITEMAP_CACHE_TIME}" min="0" /></dd>
 	</dl>
-    <dl>
-		<dt><label for="vinny_url_sitemap_limit">{L_VINNY_URL_SITEMAP_LIMIT}:</label><br /><span>{L_VINNY_URL_SITEMAP_LIMIT_EXPLAIN}</span></dt>
-		<dd><input type="number" name="vinny_url_sitemap_limit" value="{VINNY_URL_SITEMAP_LIMIT}" min="100" max="50000" /></dd>
+	<dl>
+		<dt><label for="vinny_url_sitemap_limit">{L_VINNY_URL_SITEMAP_LIMIT}{L_COLON}</label><br /><span>{L_VINNY_URL_SITEMAP_LIMIT_EXPLAIN}</span></dt>
+		<dd><input type="number" id="vinny_url_sitemap_limit" name="vinny_url_sitemap_limit" value="{VINNY_URL_SITEMAP_LIMIT}" min="1" max="50000" /></dd>
 	</dl>
-    <dl>
-		<dt><label for="vinny_url_sitemap_priority">{L_VINNY_URL_SITEMAP_PRIORITY}:</label><br /><span>{L_VINNY_URL_SITEMAP_PRIORITY_EXPLAIN}</span></dt>
-		<dd><input type="number" name="vinny_url_sitemap_priority" value="{VINNY_URL_SITEMAP_PRIORITY}" step="0.1" min="0.0" max="1.0" /></dd>
+	<dl>
+		<dt><label for="vinny_url_sitemap_priority">{L_VINNY_URL_SITEMAP_PRIORITY}{L_COLON}</label><br /><span>{L_VINNY_URL_SITEMAP_PRIORITY_EXPLAIN}</span></dt>
+		<dd><input type="number" id="vinny_url_sitemap_priority" name="vinny_url_sitemap_priority" value="{VINNY_URL_SITEMAP_PRIORITY}" step="0.1" min="0.0" max="1.0" /></dd>
 	</dl>
-    <dl>
-		<dt><label for="vinny_url_sitemap_changefreq">{L_VINNY_URL_SITEMAP_CHANGEFREQ}:</label><br /><span>{L_VINNY_URL_SITEMAP_CHANGEFREQ_EXPLAIN}</span></dt>
+	<dl>
+		<dt><label for="vinny_url_sitemap_changefreq">{L_VINNY_URL_SITEMAP_CHANGEFREQ}{L_COLON}</label><br /><span>{L_VINNY_URL_SITEMAP_CHANGEFREQ_EXPLAIN}</span></dt>
 		<dd>
-            <select name="vinny_url_sitemap_changefreq">
-                <option value="always" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'always' -->selected="selected"<!-- ENDIF -->>always</option>
-                <option value="hourly" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'hourly' -->selected="selected"<!-- ENDIF -->>hourly</option>
-                <option value="daily" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'daily' -->selected="selected"<!-- ENDIF -->>daily</option>
-                <option value="weekly" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'weekly' -->selected="selected"<!-- ENDIF -->>weekly</option>
-                <option value="monthly" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'monthly' -->selected="selected"<!-- ENDIF -->>monthly</option>
-                <option value="yearly" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'yearly' -->selected="selected"<!-- ENDIF -->>yearly</option>
-                <option value="never" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'never' -->selected="selected"<!-- ENDIF -->>never</option>
-            </select>
-        </dd>
+			<select id="vinny_url_sitemap_changefreq" name="vinny_url_sitemap_changefreq">
+				<option value="always" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'always' -->selected="selected"<!-- ENDIF -->>{L_VINNY_URL_CHANGEFREQ_ALWAYS}</option>
+				<option value="hourly" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'hourly' -->selected="selected"<!-- ENDIF -->>{L_VINNY_URL_CHANGEFREQ_HOURLY}</option>
+				<option value="daily" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'daily' -->selected="selected"<!-- ENDIF -->>{L_VINNY_URL_CHANGEFREQ_DAILY}</option>
+				<option value="weekly" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'weekly' -->selected="selected"<!-- ENDIF -->>{L_VINNY_URL_CHANGEFREQ_WEEKLY}</option>
+				<option value="monthly" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'monthly' -->selected="selected"<!-- ENDIF -->>{L_VINNY_URL_CHANGEFREQ_MONTHLY}</option>
+				<option value="yearly" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'yearly' -->selected="selected"<!-- ENDIF -->>{L_VINNY_URL_CHANGEFREQ_YEARLY}</option>
+				<option value="never" <!-- IF VINNY_URL_SITEMAP_CHANGEFREQ eq 'never' -->selected="selected"<!-- ENDIF -->>{L_VINNY_URL_CHANGEFREQ_NEVER}</option>
+			</select>
+		</dd>
 	</dl>
-    <dl>
-		<dt><label for="vinny_url_sitemap_excluded">{L_VINNY_URL_SITEMAP_EXCLUDED}:</label><br /><span>{L_VINNY_URL_SITEMAP_EXCLUDED_EXPLAIN}</span></dt>
-		<dd><select name="vinny_url_sitemap_excluded[]" multiple="multiple" size="10">
-            <!-- BEGIN forums -->
-            <option value="{forums.FORUM_ID}"<!-- IF forums.SELECTED --> selected="selected"<!-- ENDIF -->>{forums.FORUM_NAME}</option>
-            <!-- END forums -->
-        </select></dd>
+	<dl>
+		<dt><label for="vinny_url_sitemap_excluded">{L_VINNY_URL_SITEMAP_EXCLUDED}{L_COLON}</label><br /><span>{L_VINNY_URL_SITEMAP_EXCLUDED_EXPLAIN}</span></dt>
+		<dd><select id="vinny_url_sitemap_excluded" name="vinny_url_sitemap_excluded[]" multiple="multiple" size="10">
+			<!-- BEGIN forums -->
+			<option value="{forums.FORUM_ID}"<!-- IF forums.SELECTED --> selected="selected"<!-- ENDIF -->>{forums.FORUM_NAME}</option>
+			<!-- END forums -->
+		</select></dd>
 	</dl>
 </fieldset>
 

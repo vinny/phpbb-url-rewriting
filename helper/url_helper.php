@@ -20,9 +20,6 @@ class url_helper
 	/** @var \phpbb\config\config */
 	protected $config;
 
-	/** @var string */
-	protected $php_ext;
-
 	/** @var \Transliterator|null */
 	protected $transliterator;
 
@@ -30,12 +27,10 @@ class url_helper
 	 * Constructor
 	 *
 	 * @param \phpbb\config\config $config
-	 * @param string $php_ext
 	 */
-	public function __construct(\phpbb\config\config $config, $php_ext)
+	public function __construct(\phpbb\config\config $config)
 	{
 		$this->config = $config;
-		$this->php_ext = $php_ext;
 	}
 
 	/**
@@ -46,6 +41,8 @@ class url_helper
 	 */
 	public function transliterate($text)
 	{
+		$text = $this->prepare_text($text);
+
 		if (empty($text))
 		{
 			return 'n-a';
@@ -57,10 +54,17 @@ class url_helper
 			{
 				$this->transliterator = \Transliterator::create('Any-Latin; Latin-ASCII; Lower()');
 			}
-			
+
 			if ($this->transliterator)
 			{
-				$text = $this->transliterator->transliterate($text);
+				$transliterated = $this->transliterator->transliterate($text);
+
+				if ($transliterated === false)
+				{
+					$transliterated = '';
+				}
+
+				$text = $transliterated;
 				$text = preg_replace('/[^a-z0-9]+/', '-', $text);
 				$text = trim($text, '-');
 				return $text ?: 'n-a';
@@ -70,9 +74,9 @@ class url_helper
 		// Fallback: simple replacement map for common chars
 		$start = 'àáâãäçèéêëìíîïñòóôõöùúûüýÿÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝ';
 		$end   = 'aaaaaceeeeiiiinooooouuuuyyaaaaaceeeeiiiinooooouuuuy';
-		
+
 		$text = strtr($text, array_combine(preg_split('//u', $start, -1, PREG_SPLIT_NO_EMPTY), preg_split('//u', $end, -1, PREG_SPLIT_NO_EMPTY)));
-		
+
 		// Lowercase
 		$text = strtolower($text);
 
@@ -89,25 +93,32 @@ class url_helper
 
 		return $text;
 	}
-	
+
 	/**
 	 * Clean a URL segment
-	 * 
+	 *
 	 * @param string $text
 	 * @return string
 	 */
 	public function clean_url($text)
 	{
-		if (empty($this->config['vinny_url_translit_enable']))
+		if (!empty($this->config['vinny_url_translit_enable']))
 		{
-			$text = strtolower($text);
-			$text = preg_replace('/[^a-z0-9]+/', '-', $text);
-			$text = trim($text, '-');
-
-			return $text ?: 'n-a';
+			return $this->transliterate($text);
 		}
 
-		return $this->transliterate($text);
+		$text = $this->prepare_text($text);
+
+		if ($text === '')
+		{
+			return 'n-a';
+		}
+
+		$text = strtolower($text);
+		$text = preg_replace('/[^a-z0-9]+/', '-', $text);
+		$text = trim($text, '-');
+
+		return $text ?: 'n-a';
 	}
 
 	/**
@@ -119,6 +130,7 @@ class url_helper
 	 */
 	public function generate_topic_link($topic_id, $topic_title)
 	{
+		$topic_id = (int) $topic_id;
 		$mode = (int) ($this->config['vinny_url_rewrite_mode'] ?? 1);
 
 		if ($mode === 1 && $topic_title)
@@ -139,6 +151,7 @@ class url_helper
 	 */
 	public function generate_forum_link($forum_id, $forum_name)
 	{
+		$forum_id = (int) $forum_id;
 		$mode = (int) ($this->config['vinny_url_rewrite_mode'] ?? 1);
 
 		if ($mode === 1 && $forum_name)
@@ -160,6 +173,8 @@ class url_helper
 	 */
 	public function generate_post_link($post_id, $topic_id = 0, $topic_title = '')
 	{
+		$post_id = (int) $post_id;
+		$topic_id = (int) $topic_id;
 		$mode = (int) ($this->config['vinny_url_rewrite_mode'] ?? 1);
 
 		if ($mode === 1 && $topic_id && $topic_title)
@@ -169,5 +184,14 @@ class url_helper
 		}
 
 		return "post-p{$post_id}#p{$post_id}";
+	}
+
+	protected function prepare_text($text)
+	{
+		$text = (string) $text;
+		$text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+		$text = strip_tags($text);
+
+		return trim($text);
 	}
 }
