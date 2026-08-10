@@ -1,10 +1,9 @@
 {
     "name": "vinny/urlrewriting",
     "type": "phpbb-extension",
-    "description": "Friendly URLs and Sitemap for phpBB 3",
-    "homepage": "https://github.com/vinny",
+    "description": "Converts standard phpBB URLs into human-friendly links with XML sitemap and Open Graph support.",
+    "homepage": "https://github.com/vinny/phpbb-url-rewriting",
     "version": "1.0.0",
-    "time": "2026-02-16",
     "license": "GPL-2.0-only",
     "authors": [
         {
@@ -24,6 +23,11 @@
         "display-name": "Advanced URL Rewriting",
         "soft-require": {
             "phpbb/phpbb": ">=3.3.0"
+        },
+        "version-check": {
+            "host": "www.phpbb.com",
+            "directory": "/customise/db/extension/urlrewriting",
+            "filename": "version_check"
         }
     }
 }

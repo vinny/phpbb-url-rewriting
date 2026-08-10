@@ -28,18 +28,9 @@ class v100 extends \phpbb\db\migration\migration
 			// General Settings
 			array('config.add', array('vinny_url_rewrite_enable', 0)),
 			array('config.add', array('vinny_url_rewrite_mode', 1)),
-			array('config.add', array('vinny_url_sitemap_enable', 1)),
-
 			array('config.add', array('vinny_url_opengraph_enable', 1)),
 			array('config.add', array('vinny_url_translit_enable', 1)),
 			array('config.add', array('vinny_url_redirect_enable', 1)),
-
-			// Sitemap Settings
-			array('config.add', array('vinny_url_sitemap_cache_time', 24)),
-			array('config.add', array('vinny_url_sitemap_limit', 50000)),
-			array('config.add', array('vinny_url_sitemap_excluded', '')),
-			array('config.add', array('vinny_url_sitemap_priority', '0.5')),
-			array('config.add', array('vinny_url_sitemap_changefreq', 'daily')),
 
 			// Add ACP Module Category
 			array('module.add', array(
@@ -54,7 +45,7 @@ class v100 extends \phpbb\db\migration\migration
 				'ACP_URLREWRITING_TITLE',
 				array(
 					'module_basename'   => '\vinny\urlrewriting\acp\main_module',
-					'modes'             => array('settings', 'sitemap', 'server', 'faq'),
+					'modes'             => array('settings', 'server', 'faq'),
 				),
 			)),
 		);

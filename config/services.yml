@@ -13,16 +13,6 @@ services:
         tags:
             - { name: event.listener }
 
-    vinny.urlrewriting.controller.sitemap:
-        class: vinny\urlrewriting\controller\sitemap
-        arguments:
-            - '@config'
-            - '@dbal.conn'
-            - '@user'
-            - '@vinny.urlrewriting.helper'
-            - '%core.root_path%'
-            - '%core.php_ext%'
-
     vinny.urlrewriting.helper:
         class: vinny\urlrewriting\helper\url_helper
         arguments:

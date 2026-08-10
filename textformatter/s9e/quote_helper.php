@@ -10,11 +10,6 @@
 
 namespace vinny\urlrewriting\textformatter\s9e;
 
-if (!defined('IN_PHPBB'))
-{
-	exit;
-}
-
 class quote_helper extends \phpbb\textformatter\s9e\quote_helper
 {
 	protected $db;

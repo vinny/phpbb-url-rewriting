@@ -10,11 +10,6 @@
 
 namespace vinny\urlrewriting\helper;
 
-if (!defined('IN_PHPBB'))
-{
-	exit;
-}
-
 class url_helper
 {
 	/** @var \phpbb\config\config */
@@ -184,6 +179,21 @@ class url_helper
 		}
 
 		return "post-p{$post_id}#p{$post_id}";
+	}
+
+	public function topic_path($topic_id, $topic_title = '')
+	{
+		return $this->generate_topic_link($topic_id, $topic_title);
+	}
+
+	public function forum_path($forum_id, $forum_name = '')
+	{
+		return $this->generate_forum_link($forum_id, $forum_name);
+	}
+
+	public function post_path($post_id, $topic_id = 0, $topic_title = '')
+	{
+		return $this->generate_post_link($post_id, $topic_id, $topic_title);
 	}
 
 	protected function prepare_text($text)

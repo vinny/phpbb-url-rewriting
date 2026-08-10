@@ -1,13 +1,13 @@
-<!-- IF S_OPENGRAPH -->
-<meta property="og:title" content="{OG_TITLE}" />
-<meta property="og:description" content="{OG_DESC}" />
-<meta property="og:url" content="{OG_URL}" />
-<meta property="og:type" content="{OG_TYPE}" />
-<!-- IF OG_IMAGE --><meta property="og:image" content="{OG_IMAGE}" /><!-- ENDIF -->
+{% if S_OPENGRAPH %}
+<meta property="og:title" content="{{ OG_TITLE }}" />
+<meta property="og:description" content="{{ OG_DESC }}" />
+<meta property="og:url" content="{{ OG_URL }}" />
+<meta property="og:type" content="{{ OG_TYPE }}" />
+{% if OG_IMAGE %}<meta property="og:image" content="{{ OG_IMAGE }}" />{% endif %}
 
 <!-- Twitter Cards -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="{OG_TITLE}" />
-<meta name="twitter:description" content="{OG_DESC}" />
-<!-- IF OG_IMAGE --><meta name="twitter:image" content="{OG_IMAGE}" /><!-- ENDIF -->
-<!-- ENDIF -->
+<meta name="twitter:title" content="{{ OG_TITLE }}" />
+<meta name="twitter:description" content="{{ OG_DESC }}" />
+{% if OG_IMAGE %}<meta name="twitter:image" content="{{ OG_IMAGE }}" />{% endif %}
+{% endif %}

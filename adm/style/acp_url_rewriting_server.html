@@ -1,47 +1,47 @@
-<!-- INCLUDE overall_header.html -->
+{% include 'overall_header.html' %}
 
-<h1>{L_ACP_URLREWRITING_SERVER}</h1>
+<h1>{{ lang('ACP_URLREWRITING_SERVER') }}</h1>
 
-<p>{L_ACP_URLREWRITING_SERVER_EXPLAIN}</p>
+<p>{{ lang('ACP_URLREWRITING_SERVER_EXPLAIN') }}</p>
 
 <fieldset>
-	<legend>{L_ACP_URLREWRITING_SELECT_SERVER}</legend>
+	<legend>{{ lang('ACP_URLREWRITING_SELECT_SERVER') }}</legend>
 	<dl>
-		<dt><label for="server_type">{L_ACP_URLREWRITING_SELECT_SERVER}{L_COLON}</label></dt>
+		<dt><label for="server_type">{{ lang('ACP_URLREWRITING_SELECT_SERVER') }}{{ lang('COLON') }}</label></dt>
 		<dd>
 			<select id="server_type" name="server_type" class="urlrewriting-server-select" data-apache-target="apache_config" data-nginx-target="nginx_config">
-				<option value="apache">{L_ACP_URLREWRITING_SERVER_APACHE}</option>
-				<option value="nginx">{L_ACP_URLREWRITING_SERVER_NGINX}</option>
+				<option value="apache">{{ lang('ACP_URLREWRITING_SERVER_APACHE') }}</option>
+				<option value="nginx">{{ lang('ACP_URLREWRITING_SERVER_NGINX') }}</option>
 			</select>
 		</dd>
 	</dl>
 </fieldset>
 
 <fieldset id="apache_config">
-	<legend>{L_ACP_URLREWRITING_HTACCESS_IMPORTANT}</legend>
-	<p>{L_ACP_URLREWRITING_HTACCESS_RULE_EXPLAIN}</p>
+	<legend>{{ lang('ACP_URLREWRITING_HTACCESS_IMPORTANT') }}</legend>
+	<p>{{ lang('ACP_URLREWRITING_HTACCESS_RULE_EXPLAIN') }}</p>
 	<dl>
-		<dt><label for="htaccess_rules_code">{L_ACP_URLREWRITING_SERVER_APACHE}{L_COLON}</label></dt>
+		<dt><label for="htaccess_rules_code">{{ lang('ACP_URLREWRITING_SERVER_APACHE') }}{{ lang('COLON') }}</label></dt>
 		<dd>
-			<textarea id="htaccess_rules_code" rows="14" cols="80" readonly>{HTACCESS_RULES}</textarea>
+			<textarea id="htaccess_rules_code" rows="14" cols="80" readonly>{{ HTACCESS_RULES }}</textarea>
 			<br />
-			<input type="button" class="button2 urlrewriting-copy" data-copy-target="htaccess_rules_code" value="{L_COPY_CODE}" />
+			<input type="button" class="button2 urlrewriting-copy" data-copy-target="htaccess_rules_code" value="{{ lang('COPY_CODE') }}" />
 		</dd>
 	</dl>
 </fieldset>
 
 <fieldset id="nginx_config" hidden>
-	<legend>{L_ACP_URLREWRITING_NGINX_IMPORTANT}</legend>
-	<p>{L_ACP_URLREWRITING_NGINX_RULE_EXPLAIN}</p>
+	<legend>{{ lang('ACP_URLREWRITING_NGINX_IMPORTANT') }}</legend>
+	<p>{{ lang('ACP_URLREWRITING_NGINX_RULE_EXPLAIN') }}</p>
 	<dl>
-		<dt><label for="nginx_rules_code">{L_ACP_URLREWRITING_SERVER_NGINX}{L_COLON}</label></dt>
+		<dt><label for="nginx_rules_code">{{ lang('ACP_URLREWRITING_SERVER_NGINX') }}{{ lang('COLON') }}</label></dt>
 		<dd>
-			<textarea id="nginx_rules_code" rows="14" cols="80" readonly>{NGINX_RULES}</textarea>
+			<textarea id="nginx_rules_code" rows="14" cols="80" readonly>{{ NGINX_RULES }}</textarea>
 			<br />
-			<input type="button" class="button2 urlrewriting-copy" data-copy-target="nginx_rules_code" value="{L_COPY_CODE}" />
+			<input type="button" class="button2 urlrewriting-copy" data-copy-target="nginx_rules_code" value="{{ lang('COPY_CODE') }}" />
 		</dd>
 	</dl>
 </fieldset>
 
-<!-- INCLUDEJS @vinny_urlrewriting/urlrewriting_acp.js -->
-<!-- INCLUDE overall_footer.html -->
+{% INCLUDEJS '@vinny_urlrewriting/urlrewriting_acp.js' %}
+{% include 'overall_footer.html' %}

@@ -1,53 +1,63 @@
-# Advanced URL Rewriting for phpBB
-This extension transforms your standard phpBB URLs into human-readable, and cleanly structured links. Alongside its core URL rewriting capabilities, it comes packed with a built-in XML Sitemap Generator, Open Graph Tags for rich social media sharing, and automatic 301 redirects to ensure your existing links never break.
+# Advanced URL Rewriting for phpBB [![Build Status](https://github.com/vinny/phpbb-url-rewriting/actions/workflows/tests.yml/badge.svg)](https://github.com/vinny/phpbb-url-rewriting/actions)
+
+Advanced URL Rewriting converts standard phpBB URLs into clean, human-readable links. It includes Open Graph meta tags for social media sharing, universal HTML link rewriting across the board, and automatic 301 redirects to ensure existing links continue working.
 
 ## Features
-- **Human-Friendly URLs:** Replaces complex, parameter-heavy phpBB links with clean, descriptive URLs (e.g., `your-topic-title-t10`).
-- **Smart Transliteration:** Automatically removes accents and special characters, creating clean ASCII slugs for maximum global compatibility.
-- **Auto 301 Redirects:** Seamlessly forwards old standard URLs to the new friendly format, preserving existing links.
-- **Integrated XML Sitemap:** Automatically generates a comprehensive sitemap of forums and topics, configurable and cached for optimal performance.
-- **Open Graph Support:** Enhances social media sharing by extracting images and text from posts to create rich preview cards. 
+
+- **Human-friendly URLs:** Replaces parameter-heavy phpBB links with clean URLs (`topic-title-t123`, `forum-name-f45`, `post-p678`).
+- **Universal link rewriting:** Automatically rewrites standard URLs in HTML content across core pages and third-party extensions.
+- **Two rewriting modes:** Choose between Advanced mode (includes topic/forum titles) and Simple mode (minimal short URLs).
+- **Smart transliteration:** Automatically removes accents and special characters, converting text to clean ASCII slugs (`ação` becomes `acao`).
+- **Automatic 301 redirects:** Forwards old standard URLs (such as `viewtopic.php?t=123`) to matching friendly URLs.
+- **Open Graph support:** Injects meta tags on topic pages to display title, description, and preview images when shared on social networks.
+
+## Requirements
+
+- phpBB 3.3.0 or higher
+- PHP 7.2.0 or higher
+- Apache (with `mod_rewrite`) or NGINX web server
+
+## Installation
+
+1. Download the extension files.
+2. Upload the files to `ext/vinny/urlrewriting` in your phpBB root directory.
+3. Go to the **Admin Control Panel (ACP) > Customise > Manage extensions**.
+4. Locate **Advanced URL Rewriting** under Disabled Extensions and click **Enable**.
+5. Copy the web server rewrite rules from the extension's ACP module to your server configuration.
+
+## Configuration & Web Server Rules
+
+After enabling the extension, you must add rewrite rules to your web server so rewritten URLs resolve correctly.
+
+Rules for Apache (`.htaccess`) and NGINX are available directly in the ACP under **ACP > Extension > Advanced URL Rewriting > Server Configuration**.
 
 ## FAQ
 
-**Q: Is this an SEO extension?**
+**Q: Is this an SEO extension?**  
+A: No. Its sole purpose is to rewrite standard phpBB URLs into a cleaner, human-friendly format.
 
-A: No. This extension does not focus on SEO (Search Engine Optimization). Its sole purpose is to rewrite standard phpBB URLs into a cleaner, human-friendly format to improve the aesthetics and readability of your links.
+**Q: Will old links break after enabling this extension?**  
+A: No. As long as 301 redirects are enabled and your web server rules are set up correctly, old links will automatically redirect to their friendly counterparts.
 
-**Q: Will my old links break after installing this?**
+**Q: Why do rewritten links return a 404 error after enabling the extension?**  
+A: This usually means your web server has not received the rewrite rules yet, or the rules were placed in the wrong position in your configuration file.
 
-A: No! The extension includes an automatic 301 redirect feature. If someone visits an old standard URL (like `viewtopic.php?p=123`), they will be automatically redirected to the new rewritten URL without any issues.
+**Q: Does this extension work on NGINX?**  
+A: Yes. The Server Configuration tab in the ACP provides the required NGINX rules, which must be added manually to your server block.
 
-**Q: I enabled URL rewriting, but now all my forum links return a 404 (Not Found) error. What happened?**
+**Q: Can this extension conflict with other SEO or URL rewriting extensions?**  
+A: Yes. It is recommended to disable other URL rewriting extensions before enabling this one to prevent conflicts in server rules or link generation.
 
-A: This means your server is not yet configured to handle the rewritten URLs. Use the extension's Server Configuration tab in the ACP to copy the required rules, then add them manually to your Apache `.htaccess` file or your NGINX server block.
+## Uninstallation & Fallback Rules
 
-**Q: Does this extension work on NGINX servers?**
+> [!CAUTION]
+> If you decide to uninstall or disable this extension, you **must** implement fallback redirection rules on your web server. Otherwise, URLs indexed by search engines or shared on external sites (such as `topic-title-t123`) will return 404 errors.
 
-A: Yes. The ACP module shows the required NGINX rewrite rules, but you must add them manually to your server block.
+Add the following fallback rules to your server configuration to redirect friendly URLs back to standard phpBB links (`viewtopic.php?t=123`):
 
-**Q: What happens to topic or forum titles that have accents or non-Latin characters?**
+### Apache (.htaccess Fallback)
 
-A: The extension has a built-in "Smart Transliteration" feature. It automatically removes accents and converts special characters into standard ASCII (e.g., converting "ação" to "acao") to ensure your URLs remain clean and functional.
-
-**Q: What is the difference between Simple and Advanced modes?**
-
-A: Simple mode uses minimal text (e.g., `forum-f123`), keeping URLs as short as possible. Advanced mode includes the forum or topic titles within the URL (e.g., `my-topic-title-t123`), which provides more context and readability.
-
-**Q: Will this conflict with other SEO extensions?**
-
-A: It is highly recommended to disable any other URL rewriting extensions before using this one to prevent conflicts in your server rules or URL generation.
-
-## Requirements
-- phpBB >= 3.3.0
-- PHP >= 7.2.0 (PHP 8.x compatible)
-- Apache (with mod_rewrite) or NGINX web server
-
-## Uninstallation & Fallback ⚠️
-If you decide to uninstall this extension, it is **crucial** to implement fallback redirection rules to prevent 404 errors. The URLs previously indexed by search engines (e.g., `topic-title-t10`) need to smoothly redirect back to the standard phpBB format (`viewtopic.php?t=10`) using 301 Permanent Redirects.
-
-### Fallback Rules for Apache (.htaccess)
-If you are using Apache, add the following code to the `.htaccess` file in your forum's root directory, immediately after `RewriteEngine On`:
+Place these rules in your `.htaccess` file immediately after `RewriteEngine On`:
 
 ```apache
 # ----------------------------------------------------------------------
@@ -71,8 +81,9 @@ RewriteCond %{REQUEST_URI} ^(.*)/[^/]+-f([0-9]+)$
 RewriteRule ^.*-f([0-9]+)$ %1/viewforum.php?f=$1 [QSA,R=301,L]
 ```
 
-### Fallback Rules for NGINX
-If you are using NGINX, add the following code to your server block configuration (usually inside the `server {}` block):
+### NGINX Fallback
+
+Add these rules inside your NGINX `server {}` block:
 
 ```nginx
 # ----------------------------------------------------------------------
@@ -91,10 +102,10 @@ rewrite ^(.*)/[^/]+-t([0-9]+)$ $1/viewtopic.php?t=$2 permanent;
 rewrite ^(.*)/[^/]+-f([0-9]+)$ $1/viewforum.php?f=$2 permanent;
 ```
 
-These rules tell search engines that the pages have permanently moved back to their original locations, preserving your site's link equity.
+## Support
 
-## Support this extension
-Buy me a coffee and support this extension: https://ko-fi.com/vinny1
+If you find this extension helpful, consider supporting its development on [Ko-fi](https://ko-fi.com/vinny1).
 
 ## License
-GPL-2.0-only
+
+[![License](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](license.txt)

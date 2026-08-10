@@ -10,22 +10,15 @@
 
 namespace vinny\urlrewriting\acp;
 
-if (!defined('IN_PHPBB'))
-{
-	exit;
-}
-
 class main_module
 {
-	const CHANGEFREQ_VALUES = array('always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never');
-
 	public $u_action;
 	public $tpl_name;
 	public $page_title;
 
 	public function main($id, $mode)
 	{
-		global $config, $phpbb_container, $request, $template, $user;
+		global $config, $request, $template, $user;
 
 		$user->add_lang_ext('vinny/urlrewriting', 'info_acp_urlrewriting');
 
@@ -48,63 +41,7 @@ class main_module
 			case 'faq':
 				$this->faq($template, $user);
 			break;
-
-			case 'sitemap':
-				$this->sitemap($config, $phpbb_container->get('controller.helper'), $request, $template, $user);
-			break;
 		}
-	}
-
-	protected function sitemap($config, \phpbb\controller\helper $controller_helper, $request, $template, $user)
-	{
-		if ($request->is_set_post('submit'))
-		{
-			if (!check_form_key('vinny_urlrewriting_sitemap'))
-			{
-				trigger_error('FORM_INVALID');
-			}
-
-			$config->set('vinny_url_sitemap_cache_time', max(0, $request->variable('vinny_url_sitemap_cache_time', 24)));
-			$config->set('vinny_url_sitemap_limit', min(50000, max(1, $request->variable('vinny_url_sitemap_limit', 50000))));
-			$config->set('vinny_url_sitemap_priority', $this->normalise_priority($request->variable('vinny_url_sitemap_priority', 0.5, true)));
-			$config->set('vinny_url_sitemap_changefreq', $this->normalise_changefreq($request->variable('vinny_url_sitemap_changefreq', 'daily')));
-
-			$excluded_forums = $request->variable('vinny_url_sitemap_excluded', array(0));
-			$excluded_forums = array_unique(array_map('intval', $excluded_forums));
-
-			$config->set('vinny_url_sitemap_excluded', implode(',', $excluded_forums));
-
-			trigger_error($user->lang('CONFIG_UPDATED') . adm_back_link($this->u_action));
-		}
-
-		// Use make_forum_select logic
-		$forum_list = make_forum_select(false, false, true, false, false, false, true);
-
-		$excluded_forums = array_map('intval', explode(',', $config['vinny_url_sitemap_excluded']));
-
-		foreach ($forum_list as $forum_id => $forum_data)
-		{
-			if ($forum_data['forum_type'] == FORUM_LINK)
-			{
-				continue;
-			}
-
-			$template->assign_block_vars('forums', array(
-				'FORUM_ID'      => $forum_id,
-				'FORUM_NAME'    => (isset($forum_data['padding']) ? $forum_data['padding'] : '') . $forum_data['forum_name'],
-				'SELECTED'      => in_array((int) $forum_id, $excluded_forums, true),
-				'DISABLED'      => $forum_data['disabled']
-			));
-		}
-
-		$template->assign_vars(array(
-			'U_ACTION'                      => $this->u_action,
-			'VINNY_URL_SITEMAP_CACHE_TIME'  => $config['vinny_url_sitemap_cache_time'],
-			'VINNY_URL_SITEMAP_LIMIT'       => $config['vinny_url_sitemap_limit'],
-			'VINNY_URL_SITEMAP_PRIORITY'    => $config['vinny_url_sitemap_priority'],
-			'VINNY_URL_SITEMAP_CHANGEFREQ'  => $this->normalise_changefreq($config['vinny_url_sitemap_changefreq']),
-			'U_SITEMAP_URL'                 => $controller_helper->route('vinny_urlrewriting_sitemap'),
-		));
 	}
 
 	protected function settings($config, $request, $template, $user)
@@ -119,7 +56,6 @@ class main_module
 			$config->set('vinny_url_rewrite_enable', $this->normalise_bool($request->variable('vinny_url_rewrite_enable', 0)));
 			$config->set('vinny_url_rewrite_mode', $this->normalise_bool($request->variable('vinny_url_rewrite_mode', 1)));
 			$config->set('vinny_url_translit_enable', $this->normalise_bool($request->variable('vinny_url_translit_enable', 0)));
-			$config->set('vinny_url_sitemap_enable', $this->normalise_bool($request->variable('vinny_url_sitemap_enable', 0)));
 			$config->set('vinny_url_opengraph_enable', $this->normalise_bool($request->variable('vinny_url_opengraph_enable', 0)));
 			$config->set('vinny_url_redirect_enable', $this->normalise_bool($request->variable('vinny_url_redirect_enable', 0)));
 
@@ -129,9 +65,8 @@ class main_module
 		$template->assign_vars(array(
 			'U_ACTION'                      => $this->u_action,
 			'VINNY_URL_REWRITE_ENABLE'      => $config['vinny_url_rewrite_enable'],
-			'VINNY_URL_REWRITE_MODE'        => isset($config['vinny_url_rewrite_mode']) ? $config['vinny_url_rewrite_mode'] : 1, // Default Advanced
+			'VINNY_URL_REWRITE_MODE'        => isset($config['vinny_url_rewrite_mode']) ? $config['vinny_url_rewrite_mode'] : 1,
 			'VINNY_URL_TRANSLIT_ENABLE'     => $config['vinny_url_translit_enable'],
-			'VINNY_URL_SITEMAP_ENABLE'      => $config['vinny_url_sitemap_enable'],
 			'VINNY_URL_OPENGRAPH_ENABLE'    => $config['vinny_url_opengraph_enable'],
 			'VINNY_URL_REDIRECT_ENABLE'     => $config['vinny_url_redirect_enable'],
 		));
@@ -147,18 +82,6 @@ class main_module
 			'HTACCESS_RULES' => $user->lang($apache_rules_key),
 			'NGINX_RULES'    => $user->lang($nginx_rules_key),
 		));
-	}
-
-	protected function normalise_changefreq($changefreq)
-	{
-		return in_array($changefreq, self::CHANGEFREQ_VALUES, true) ? $changefreq : 'daily';
-	}
-
-	protected function normalise_priority($priority)
-	{
-		$priority = min(1, max(0, (float) $priority));
-
-		return number_format($priority, 1, '.', '');
 	}
 
 	protected function normalise_bool($value)
@@ -179,13 +102,6 @@ class main_module
 			'VINNY_URL_TRANSLIT_ENABLE'     => 'ACP_URLREWRITING_FAQ_TRANSLIT',
 			'VINNY_URL_REDIRECT_ENABLE'     => 'ACP_URLREWRITING_FAQ_REDIRECTS',
 			'VINNY_URL_OPENGRAPH_ENABLE'    => 'ACP_URLREWRITING_FAQ_OPENGRAPH',
-		));
-
-		$this->add_faq_block($template, $user, 'ACP_URLREWRITING_FAQ_SITEMAP', array(
-			'ACP_URLREWRITING_FAQ_SITEMAP'  => 'ACP_URLREWRITING_FAQ_SITEMAP_TEXT',
-			'VINNY_URL_SITEMAP_CACHE_TIME'  => 'ACP_URLREWRITING_FAQ_SITEMAP_CACHE',
-			'VINNY_URL_SITEMAP_LIMIT'       => 'ACP_URLREWRITING_FAQ_SITEMAP_LIMIT',
-			'VINNY_URL_SITEMAP_EXCLUDED'    => 'ACP_URLREWRITING_FAQ_SITEMAP_EXCLUDED',
 		));
 
 		$this->add_faq_block($template, $user, 'ACP_URLREWRITING_FAQ_SERVER', array(

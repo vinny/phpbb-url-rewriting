@@ -11,11 +11,7 @@
 namespace vinny\urlrewriting\event;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-
-if (!defined('IN_PHPBB'))
-{
-	exit;
-}
+use Symfony\Component\HttpKernel\KernelEvents;
 
 class listener implements EventSubscriberInterface
 {
@@ -65,6 +61,7 @@ class listener implements EventSubscriberInterface
 			'core.append_sid'							=> 'rewrite_url',
 			'core.page_header'							=> 'handle_page_header',
 			'core.page_header_after'					=> 'redirect_url',
+			KernelEvents::RESPONSE						=> 'on_kernel_response',
 			'core.viewforum_modify_topicrow'			=> 'rewrite_viewforum_links',
 			'core.display_forums_modify_template_vars'	=> 'rewrite_last_post_links',
 			'core.viewtopic_modify_post_row'			=> 'rewrite_viewtopic_post_links',
@@ -73,6 +70,7 @@ class listener implements EventSubscriberInterface
 			'core.approve_posts_after'					=> 'fix_mcp_post_moderation_redirect',
 			'core.approve_topics_after'					=> 'fix_mcp_post_moderation_redirect',
 			'core.disapprove_posts_after'				=> 'fix_mcp_post_moderation_redirect',
+			'core.feed_modify_feed_row'					=> 'rewrite_feed_row',
 			'core.modify_notification_message'			=> 'rewrite_notification_message_urls',
 		);
 	}
@@ -101,7 +99,7 @@ class listener implements EventSubscriberInterface
 		{
 			$url = $this->build_topic_url($parsed_params, $is_amp);
 		}
-		elseif ($script_name === 'viewforum.' . $this->php_ext)
+		else if ($script_name === 'viewforum.' . $this->php_ext)
 		{
 			$url = $this->build_forum_url($parsed_params, $is_amp);
 		}
@@ -355,8 +353,7 @@ class listener implements EventSubscriberInterface
 
 	protected function replace_viewtopic_post_urls($text, $post_id, $replacement_url)
 	{
-		$path = '(?:(?:https?:)?//[^\s\]\)"]+?/|(?:\./|\../|/)?(?:[^\s\]\)"]*/)?';
-		$pattern = '~' . $path . 'viewtopic\.' . preg_quote($this->php_ext, '~') . '\?[^\s\]\)"]+~i';
+		$pattern = '~(?:(?:https?:)?//[^\s\]\)"]+/|\.\./|\./|/)?viewtopic\.' . preg_quote($this->php_ext, '~') . '\?[^\s\]\)"]+~i';
 
 		return preg_replace_callback($pattern, function ($matches) use ($post_id, $replacement_url)
 		{
@@ -412,7 +409,7 @@ class listener implements EventSubscriberInterface
 		{
 			$friendly_url = $this->build_topic_url($params, false);
 		}
-		elseif ($script_name === 'viewforum.' . $this->php_ext)
+		else if ($script_name === 'viewforum.' . $this->php_ext)
 		{
 			$friendly_url = $this->build_forum_url($params, false);
 		}
@@ -451,7 +448,7 @@ class listener implements EventSubscriberInterface
 		{
 			$parsed_params = array_merge($parsed_params, $params);
 		}
-		elseif (is_string($params) && $params !== '')
+		else if (is_string($params) && $params !== '')
 		{
 			$params = ltrim($params, '?&');
 			parse_str(str_replace('&amp;', '&', $params), $string_params);
@@ -497,7 +494,7 @@ class listener implements EventSubscriberInterface
 				$friendly_url = $this->remove_url_anchor($friendly_url);
 			}
 		}
-		elseif ($topic_id)
+		else if ($topic_id)
 		{
 			$title = $this->get_topic_title($topic_id);
 			$friendly_url = $this->url_helper->generate_topic_link($topic_id, (string) $title);
@@ -582,6 +579,232 @@ class listener implements EventSubscriberInterface
 	{
 		$this->fix_viewtopic_action_urls();
 		$this->add_seo_tags($event);
+		$this->start_output_buffer();
+	}
+
+	protected function start_output_buffer()
+	{
+		if (defined('IN_ADMIN') && IN_ADMIN)
+		{
+			return;
+		}
+
+		if (empty($this->config['vinny_url_rewrite_enable']))
+		{
+			return;
+		}
+
+		if (!headers_sent())
+		{
+			ob_start(array($this, 'process_html_output'));
+		}
+	}
+
+	public function rewrite_feed_row($event)
+	{
+		if (empty($this->config['vinny_url_rewrite_enable']))
+		{
+			return;
+		}
+
+		$row = $event['row'];
+
+		if (!empty($row['link']))
+		{
+			$row['link'] = $this->process_html_output($row['link']);
+		}
+
+		if (!empty($row['id']))
+		{
+			$row['id'] = $this->process_html_output($row['id']);
+		}
+
+		if (!empty($row['text']))
+		{
+			$row['text'] = $this->process_html_output($row['text']);
+		}
+
+		$event['row'] = $row;
+	}
+
+	public function on_kernel_response($event)
+	{
+		if (defined('IN_ADMIN') && IN_ADMIN)
+		{
+			return;
+		}
+
+		if (empty($this->config['vinny_url_rewrite_enable']))
+		{
+			return;
+		}
+
+		$response = method_exists($event, 'getResponse') ? $event->getResponse() : null;
+		if (!$response)
+		{
+			return;
+		}
+
+		$content = $response->getContent();
+		if (empty($content))
+		{
+			return;
+		}
+
+		$new_content = $this->process_html_output($content);
+		if ($new_content !== $content && $new_content !== null)
+		{
+			$response->setContent($new_content);
+		}
+	}
+
+	public function process_html_output($html)
+	{
+		if (empty($html) || empty($this->config['vinny_url_rewrite_enable']))
+		{
+			return $html;
+		}
+
+		// Rewrite viewtopic.php links (HTML, XML, JSON, text)
+		$topic_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?viewtopic\.' . preg_quote($this->php_ext, '~') . '\?[^\s\]\)"<>\']+~i';
+		$html = preg_replace_callback($topic_pattern, array($this, 'rewrite_html_topic_link'), $html);
+
+		// Rewrite viewforum.php links (HTML, XML, JSON, text)
+		$forum_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?viewforum\.' . preg_quote($this->php_ext, '~') . '\?[^\s\]\)"<>\']+~i';
+		$html = preg_replace_callback($forum_pattern, array($this, 'rewrite_html_forum_link'), $html);
+
+		// Fix any topic URL with appended p=ID parameter (e.g. reader-response-t1439&p=1401050 or reader-response-t1439?p=1401050)
+		$broken_post_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?([^\s\]\)"<>\']+?-t(\d+))(?:&amp;|&|\?)p=(\d+)(#p\3)?~i';
+		$html = preg_replace_callback($broken_post_pattern, array($this, 'fix_malformed_post_link'), $html);
+
+		return $html;
+	}
+
+	public function rewrite_html_topic_link($matches)
+	{
+		$url = $matches[0];
+		$parts = parse_url(html_entity_decode($url, ENT_QUOTES, 'UTF-8'));
+
+		if (empty($parts['query']))
+		{
+			return $url;
+		}
+
+		parse_str(str_replace('&amp;', '&', $parts['query']), $params);
+
+		$topic_id = isset($params['t']) ? (int) $params['t'] : 0;
+		$post_id = isset($params['p']) ? (int) $params['p'] : 0;
+
+		if ($post_id > 0)
+		{
+			$topic_title = '';
+			if ($topic_id > 0)
+			{
+				$topic_title = $this->get_topic_title($topic_id);
+			}
+
+			if (!$topic_title)
+			{
+				$topic_info = $this->get_topic_info_from_post($post_id);
+				if ($topic_info)
+				{
+					$topic_id = (int) $topic_info['topic_id'];
+					$topic_title = (string) $topic_info['topic_title'];
+				}
+			}
+
+			$friendly = $this->url_helper->generate_post_link($post_id, $topic_id, $topic_title);
+			if ($friendly)
+			{
+				return $this->rebuild_url_with_friendly_path($url, $friendly, $params, array('t', 'p', 'f'));
+			}
+		}
+
+		if ($topic_id > 0)
+		{
+			$title = $this->get_topic_title($topic_id);
+			if ($title)
+			{
+				$friendly = $this->url_helper->generate_topic_link($topic_id, (string) $title);
+				return $friendly ? $this->rebuild_url_with_friendly_path($url, $friendly, $params, array('t', 'f', 'p')) : $url;
+			}
+		}
+
+		return $url;
+	}
+
+	public function fix_malformed_post_link($matches)
+	{
+		$base_url = $matches[1];
+		$topic_id = (int) $matches[2];
+		$post_id = (int) $matches[3];
+
+		$topic_title = $this->get_topic_title($topic_id);
+		$friendly = $this->url_helper->generate_post_link($post_id, $topic_id, (string) $topic_title);
+
+		if (!$friendly)
+		{
+			return $matches[0];
+		}
+
+		return preg_replace('/-t' . $topic_id . '$/i', "-t{$topic_id}-p{$post_id}#p{$post_id}", $base_url);
+	}
+
+	public function rewrite_html_forum_link($matches)
+	{
+		$url = $matches[0];
+		$parts = parse_url(html_entity_decode($url, ENT_QUOTES, 'UTF-8'));
+
+		if (empty($parts['query']))
+		{
+			return $url;
+		}
+
+		parse_str(str_replace('&amp;', '&', $parts['query']), $params);
+
+		$forum_id = isset($params['f']) ? (int) $params['f'] : 0;
+
+		if ($forum_id > 0)
+		{
+			$forum_name = $this->get_forum_data($forum_id);
+			if ($forum_name)
+			{
+				$friendly = $this->url_helper->generate_forum_link($forum_id, (string) $forum_name);
+				return $friendly ? $this->rebuild_url_with_friendly_path($url, $friendly, $params, array('f')) : $url;
+			}
+		}
+
+		return $url;
+	}
+
+	protected function rebuild_url_with_friendly_path($original_url, $friendly_path, array $params, array $consumed_keys)
+	{
+		foreach ($consumed_keys as $key)
+		{
+			unset($params[$key]);
+		}
+
+		$fragment = '';
+		$hash_pos = strpos($original_url, '#');
+		if ($hash_pos !== false)
+		{
+			$fragment = substr($original_url, $hash_pos);
+			$original_url = substr($original_url, 0, $hash_pos);
+		}
+
+		$parts = parse_url($original_url);
+		$path = isset($parts['path']) ? $parts['path'] : '';
+		$dir = dirname($path);
+		$base_prefix = ($dir !== '.' && $dir !== '/' && $dir !== '\\') ? rtrim($dir, '/\\') . '/' : '';
+
+		if (isset($parts['scheme']) && isset($parts['host']))
+		{
+			$base_prefix = $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '') . '/' . ltrim($base_prefix, '/');
+		}
+
+		$query_string = !empty($params) ? '?' . http_build_query($params, '', '&amp;') : '';
+
+		return $base_prefix . $friendly_path . $query_string . $fragment;
 	}
 
 	protected function fix_viewtopic_action_urls()
@@ -739,12 +962,12 @@ class listener implements EventSubscriberInterface
 				}
 			}
 		}
-		elseif (strpos($script_name, 'viewforum.' . $this->php_ext) === 0)
+		else if (strpos($script_name, 'viewforum.' . $this->php_ext) === 0)
 		{
 			$id = $this->request->variable('f', 0);
 			$mode = 'forum';
 		}
-		elseif (strpos($script_name, 'index.' . $this->php_ext) === 0)
+		else if (strpos($script_name, 'index.' . $this->php_ext) === 0)
 		{
 			$mode = 'index';
 		}
@@ -764,7 +987,7 @@ class listener implements EventSubscriberInterface
 		{
 			$description = $this->get_forum_open_graph_description($page_data['id'], $description);
 		}
-		elseif ($page_data['mode'] === 'topic' && $page_data['id'])
+		else if ($page_data['mode'] === 'topic' && $page_data['id'])
 		{
 			$topic_data = $this->get_topic_open_graph_data($page_data['id']);
 			$description = $topic_data['description'] ? $topic_data['description'] : $description;
@@ -889,7 +1112,7 @@ class listener implements EventSubscriberInterface
 		{
 			$img_url = generate_board_url() . '/' . substr($img_url, 2);
 		}
-		elseif (strpos($img_url, 'http') !== 0 && strpos($img_url, '//') !== 0)
+		else if (strpos($img_url, 'http') !== 0 && strpos($img_url, '//') !== 0)
 		{
 			$img_url = generate_board_url() . '/' . ltrim($img_url, '/');
 		}
@@ -901,13 +1124,19 @@ class listener implements EventSubscriberInterface
 
 	protected function get_open_graph_image_from_attachment($post_id)
 	{
-		$sql = 'SELECT attach_id, extension, mimetype
-			FROM ' . ATTACHMENTS_TABLE . '
-			WHERE post_msg_id = ' . (int) $post_id . '
+		$like_image = $this->db->sql_like_expression('image/' . $this->db->get_any_char());
+
+		$sql_array = array(
+			'SELECT'   => 'attach_id, extension, mimetype',
+			'FROM'     => array(
+				ATTACHMENTS_TABLE => 'a',
+			),
+			'WHERE'    => 'post_msg_id = ' . (int) $post_id . '
 				AND in_message = 0
-				AND (mimetype ' . $this->db->sql_like_expression('image/' . $this->db->get_any_char()) . '
-					OR ' . $this->db->sql_in_set('extension', array('jpg', 'jpeg', 'png', 'gif', 'webp')) . ')
-			ORDER BY filetime ASC';
+				AND (mimetype ' . $like_image . ' OR ' . $this->db->sql_in_set('extension', array('jpg', 'jpeg', 'png', 'gif', 'webp')) . ')',
+			'ORDER_BY' => 'filetime ASC',
+		);
+		$sql = $this->db->sql_build_query('SELECT', $sql_array);
 		$result = $this->db->sql_query_limit($sql, 1);
 		$attachment = $this->db->sql_fetchrow($result);
 		$this->db->sql_freeresult($result);

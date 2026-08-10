@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<ruleset name="Extension Coding Standard">
+    <description>Coding standard configuration for phpBB extension.</description>
+
+    <!-- Paths to check -->
+    <file>acp</file>
+    <file>event</file>
+    <file>helper</file>
+    <file>migrations</file>
+    <file>textformatter</file>
+    <file>language</file>
+
+    <!-- Exclude third-party vendor directories and tests -->
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/tests/*</exclude-pattern>
+
+    <!-- Use PSR-12 standard with tab indentation for phpBB -->
+    <rule ref="PSR12">
+        <exclude name="Generic.WhiteSpace.DisallowTabIndent"/>
+        <exclude name="PSR1.Methods.CamelCapsMethodName"/>
+        <exclude name="Squiz.ControlStructures.ControlSignature"/>
+        <exclude name="PSR2.Classes.ClassDeclaration"/>
+        <exclude name="PSR2.Methods.FunctionClosingBrace"/>
+        <exclude name="Squiz.Classes.ValidClassName"/>
+        <exclude name="Generic.Files.LineLength"/>
+        <exclude name="Generic.WhiteSpace.ScopeIndent"/>
+        <exclude name="PSR2.ControlStructures.ElseIfDeclaration"/>
+        <exclude name="Squiz.Functions.MultiLineFunctionDeclaration.NewlineBeforeOpenBrace"/>
+        <exclude name="PSR12.Files.FileHeader.SpacingAfterTagBlock"/>
+    </rule>
+
+    <!-- Enforce tab indentation and forbid space indentation -->
+    <rule ref="Generic.WhiteSpace.ScopeIndent">
+        <properties>
+            <property name="indent" value="4"/>
+            <property name="tabIndent" value="true"/>
+        </properties>
+    </rule>
+    <rule ref="Generic.WhiteSpace.DisallowSpaceIndent"/>
+
+    <arg name="colors"/>
+    <arg value="sp"/>
+</ruleset>
