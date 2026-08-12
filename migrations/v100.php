@@ -22,6 +22,26 @@ class v100 extends \phpbb\db\migration\migration
 		return array('\phpbb\db\migration\data\v330\v330');
 	}
 
+	public function update_schema()
+	{
+		return array(
+			'add_columns' => array(
+				FORUMS_TABLE => array(
+					'vinny_url_forum_slug' => array('VCHAR:255', ''),
+				),
+			),
+		);
+	}
+
+	public function revert_schema()
+	{
+		return array(
+			'drop_columns' => array(
+				FORUMS_TABLE => array('vinny_url_forum_slug'),
+			),
+		);
+	}
+
 	public function update_data()
 	{
 		return array(
@@ -31,6 +51,8 @@ class v100 extends \phpbb\db\migration\migration
 			array('config.add', array('vinny_url_opengraph_enable', 1)),
 			array('config.add', array('vinny_url_translit_enable', 1)),
 			array('config.add', array('vinny_url_redirect_enable', 1)),
+			array('config.add', array('vinny_url_min_word_length', 0)),
+			array('config.add', array('vinny_url_members_enable', 0)),
 
 			// Add ACP Module Category
 			array('module.add', array(

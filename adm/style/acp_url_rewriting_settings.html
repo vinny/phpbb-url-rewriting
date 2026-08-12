@@ -34,6 +34,15 @@
 		<dd><label><input type="radio" class="radio" id="vinny_url_redirect_enable" name="vinny_url_redirect_enable" value="1" {% if VINNY_URL_REDIRECT_ENABLE %} checked="checked"{% endif %} /> {{ lang('YES') }}</label>
 			<label><input type="radio" class="radio" name="vinny_url_redirect_enable" value="0" {% if not VINNY_URL_REDIRECT_ENABLE %} checked="checked"{% endif %} /> {{ lang('NO') }}</label></dd>
 	</dl>
+	<dl>
+		<dt><label for="vinny_url_min_word_length">{{ lang('VINNY_URL_MIN_WORD_LENGTH') }}{{ lang('COLON') }}</label><br /><span>{{ lang('VINNY_URL_MIN_WORD_LENGTH_EXPLAIN') }}</span></dt>
+		<dd><input type="number" id="vinny_url_min_word_length" name="vinny_url_min_word_length" value="{{ VINNY_URL_MIN_WORD_LENGTH }}" min="0" max="10" /></dd>
+	</dl>
+	<dl>
+		<dt><label for="vinny_url_members_enable">{{ lang('VINNY_URL_MEMBERS_ENABLE') }}{{ lang('COLON') }}</label><br /><span>{{ lang('VINNY_URL_MEMBERS_ENABLE_EXPLAIN') }}</span></dt>
+		<dd><label><input type="radio" class="radio" id="vinny_url_members_enable" name="vinny_url_members_enable" value="1" {% if VINNY_URL_MEMBERS_ENABLE %} checked="checked"{% endif %} /> {{ lang('YES') }}</label>
+			<label><input type="radio" class="radio" name="vinny_url_members_enable" value="0" {% if not VINNY_URL_MEMBERS_ENABLE %} checked="checked"{% endif %} /> {{ lang('NO') }}</label></dd>
+	</dl>
 </fieldset>
 
 <fieldset class="submit-buttons">

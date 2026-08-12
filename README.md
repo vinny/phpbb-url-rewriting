@@ -5,6 +5,9 @@ Advanced URL Rewriting converts standard phpBB URLs into clean, human-readable l
 ## Features
 
 - **Human-friendly URLs:** Replaces parameter-heavy phpBB links with clean URLs (`topic-title-t123`, `forum-name-f45`, `post-p678`).
+- **Custom forum slugs:** Define custom URL slugs for individual forums directly in forum management.
+- **Member profile URLs:** Option to rewrite user profile links into clean URLs (`member/Username`).
+- **Word length filtering:** Ignore short stop words below a configured character length when generating slugs.
 - **Universal link rewriting:** Automatically rewrites standard URLs in HTML content across core pages and third-party extensions.
 - **Two rewriting modes:** Choose between Advanced mode (includes topic/forum titles) and Simple mode (minimal short URLs).
 - **Smart transliteration:** Automatically removes accents and special characters, converting text to clean ASCII slugs (`ação` becomes `acao`).
@@ -33,8 +36,8 @@ Rules for Apache (`.htaccess`) and NGINX are available directly in the ACP under
 
 ## FAQ
 
-**Q: Is this an SEO extension?**  
-A: No. Its sole purpose is to rewrite standard phpBB URLs into a cleaner, human-friendly format.
+**Q: What is the main goal of this extension?**  
+A: Its purpose is to rewrite standard phpBB URLs into a cleaner, human-friendly format.
 
 **Q: Will old links break after enabling this extension?**  
 A: No. As long as 301 redirects are enabled and your web server rules are set up correctly, old links will automatically redirect to their friendly counterparts.
@@ -45,7 +48,7 @@ A: This usually means your web server has not received the rewrite rules yet, or
 **Q: Does this extension work on NGINX?**  
 A: Yes. The Server Configuration tab in the ACP provides the required NGINX rules, which must be added manually to your server block.
 
-**Q: Can this extension conflict with other SEO or URL rewriting extensions?**  
+**Q: Can this extension conflict with other URL rewriting extensions?**  
 A: Yes. It is recommended to disable other URL rewriting extensions before enabling this one to prevent conflicts in server rules or link generation.
 
 ## Uninstallation & Fallback Rules

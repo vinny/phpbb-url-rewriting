@@ -62,7 +62,7 @@ class url_helper
 				$text = $transliterated;
 				$text = preg_replace('/[^a-z0-9]+/', '-', $text);
 				$text = trim($text, '-');
-				return $text ?: 'n-a';
+				return $this->filter_short_words($text ?: 'n-a');
 			}
 		}
 
@@ -86,7 +86,7 @@ class url_helper
 			return 'n-a';
 		}
 
-		return $text;
+		return $this->filter_short_words($text);
 	}
 
 	/**
@@ -113,7 +113,7 @@ class url_helper
 		$text = preg_replace('/[^a-z0-9]+/', '-', $text);
 		$text = trim($text, '-');
 
-		return $text ?: 'n-a';
+		return $this->filter_short_words($text ?: 'n-a');
 	}
 
 	/**
@@ -142,17 +142,27 @@ class url_helper
 	 *
 	 * @param int $forum_id
 	 * @param string $forum_name
+	 * @param string $custom_slug
 	 * @return string Relative URL
 	 */
-	public function generate_forum_link($forum_id, $forum_name)
+	public function generate_forum_link($forum_id, $forum_name, $custom_slug = '')
 	{
 		$forum_id = (int) $forum_id;
 		$mode = (int) ($this->config['vinny_url_rewrite_mode'] ?? 1);
 
-		if ($mode === 1 && $forum_name)
+		if ($mode === 1)
 		{
-			$slug = $this->clean_url($forum_name);
-			return $slug . "-f{$forum_id}";
+			if ($custom_slug !== '')
+			{
+				$slug = $this->clean_url($custom_slug);
+				return $slug . "-f{$forum_id}";
+			}
+
+			if ($forum_name)
+			{
+				$slug = $this->clean_url($forum_name);
+				return $slug . "-f{$forum_id}";
+			}
 		}
 
 		return "forum-f{$forum_id}";
@@ -181,6 +191,17 @@ class url_helper
 		return "post-p{$post_id}#p{$post_id}";
 	}
 
+	/**
+	 * Generate friendly member profile URL
+	 *
+	 * @param string $username
+	 * @return string Relative URL
+	 */
+	public function generate_member_link($username)
+	{
+		return 'member/' . rawurlencode($username);
+	}
+
 	public function topic_path($topic_id, $topic_title = '')
 	{
 		return $this->generate_topic_link($topic_id, $topic_title);
@@ -203,5 +224,27 @@ class url_helper
 		$text = strip_tags($text);
 
 		return trim($text);
+	}
+
+	protected function filter_short_words($text)
+	{
+		$min_len = (int) ($this->config['vinny_url_min_word_length'] ?? 0);
+		if ($min_len <= 1)
+		{
+			return $text;
+		}
+
+		$words = explode('-', $text);
+		$filtered = array();
+
+		foreach ($words as $word)
+		{
+			if (mb_strlen($word) >= $min_len)
+			{
+				$filtered[] = $word;
+			}
+		}
+
+		return !empty($filtered) ? implode('-', $filtered) : $text;
 	}
 }

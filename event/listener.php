@@ -42,12 +42,15 @@ class listener implements EventSubscriberInterface
 	{
 		if ($this->forum_cache === null)
 		{
-			// Load all forum names (lightweight query)
-			$sql = 'SELECT forum_id, forum_name FROM ' . FORUMS_TABLE;
+			// Load all forum names and custom slugs (lightweight query)
+			$sql = 'SELECT forum_id, forum_name, vinny_url_forum_slug FROM ' . FORUMS_TABLE;
 			$result = $this->db->sql_query($sql, 7200); // Cache for 2 hours
 			while ($row = $this->db->sql_fetchrow($result))
 			{
-				$this->forum_cache[$row['forum_id']] = $row['forum_name'];
+				$this->forum_cache[(int) $row['forum_id']] = array(
+					'forum_name' => $row['forum_name'],
+					'forum_url'  => isset($row['vinny_url_forum_slug']) ? $row['vinny_url_forum_slug'] : '',
+				);
 			}
 			$this->db->sql_freeresult($result);
 		}
@@ -55,9 +58,30 @@ class listener implements EventSubscriberInterface
 		return isset($this->forum_cache[$forum_id]) ? $this->forum_cache[$forum_id] : false;
 	}
 
+	protected function get_forum_name_and_slug($forum_id)
+	{
+		$forum_data = $this->get_forum_data($forum_id);
+		if (is_array($forum_data))
+		{
+			return array($forum_data['forum_name'], $forum_data['forum_url']);
+		}
+		return array($forum_data ?: '', '');
+	}
+
 	public static function getSubscribedEvents()
 	{
 		return array(
+			'core.modify_username_string'             => 'rewrite_member_url',
+			'core.common'                             => array(
+				array('resolve_forum_url', 0),
+				array('resolve_member_url', 1),
+			),
+			'core.memberlist_view_profile'            => 'redirect_member_url',
+			'core.acp_manage_forums_request_data'     => 'acp_manage_forums_request_data',
+			'core.acp_manage_forums_initialise_data'  => 'acp_manage_forums_initialise_data',
+			'core.acp_manage_forums_display_form'     => 'acp_manage_forums_display_form',
+			'core.acp_manage_forums_validate_data'    => 'acp_manage_forums_validate_data',
+			'core.acp_manage_forums_update_data_after'=> 'acp_manage_forums_update_data_after',
 			'core.append_sid'							=> 'rewrite_url',
 			'core.page_header'							=> 'handle_page_header',
 			'core.page_header_after'					=> 'redirect_url',
@@ -264,8 +288,12 @@ class listener implements EventSubscriberInterface
 
 			if ($forum_id > 0)
 			{
-				$forum_name = isset($tpl_ary['FORUM_NAME']) ? $tpl_ary['FORUM_NAME'] : $this->get_forum_data($forum_id);
-				$friendly_path = $this->url_helper->generate_forum_link($forum_id, (string) $forum_name);
+				list($forum_name, $forum_slug) = $this->get_forum_name_and_slug($forum_id);
+				if (!$forum_name && isset($tpl_ary['FORUM_NAME']))
+				{
+					$forum_name = $tpl_ary['FORUM_NAME'];
+				}
+				$friendly_path = $this->url_helper->generate_forum_link($forum_id, (string) $forum_name, (string) $forum_slug);
 
 				if ($friendly_path)
 				{
@@ -524,8 +552,8 @@ class listener implements EventSubscriberInterface
 			return '';
 		}
 
-		$forum_name = $this->get_forum_data($forum_id);
-		$friendly_url = $this->url_helper->generate_forum_link($forum_id, (string) $forum_name);
+		list($forum_name, $forum_slug) = $this->get_forum_name_and_slug($forum_id);
+		$friendly_url = $this->url_helper->generate_forum_link($forum_id, (string) $forum_name, (string) $forum_slug);
 
 		return $this->append_extra_params($friendly_url, $params, array('f', 'sid'), $is_amp);
 	}
@@ -578,7 +606,7 @@ class listener implements EventSubscriberInterface
 	public function handle_page_header($event)
 	{
 		$this->fix_viewtopic_action_urls();
-		$this->add_seo_tags($event);
+		$this->add_open_graph_tags($event);
 		$this->start_output_buffer();
 	}
 
@@ -766,10 +794,10 @@ class listener implements EventSubscriberInterface
 
 		if ($forum_id > 0)
 		{
-			$forum_name = $this->get_forum_data($forum_id);
-			if ($forum_name)
+			list($forum_name, $forum_slug) = $this->get_forum_name_and_slug($forum_id);
+			if ($forum_name || $forum_slug)
 			{
-				$friendly = $this->url_helper->generate_forum_link($forum_id, (string) $forum_name);
+				$friendly = $this->url_helper->generate_forum_link($forum_id, (string) $forum_name, (string) $forum_slug);
 				return $friendly ? $this->rebuild_url_with_friendly_path($url, $friendly, $params, array('f')) : $url;
 			}
 		}
@@ -897,7 +925,7 @@ class listener implements EventSubscriberInterface
 		}
 	}
 
-	public function add_seo_tags($event)
+	public function add_open_graph_tags($event)
 	{
 		if (defined('IN_ADMIN') && IN_ADMIN)
 		{
@@ -1012,9 +1040,9 @@ class listener implements EventSubscriberInterface
 
 		if ($page_data['mode'] === 'forum' && $page_data['id'])
 		{
-			$forum_name = $this->get_forum_data($page_data['id']);
+			list($forum_name, $forum_slug) = $this->get_forum_name_and_slug($page_data['id']);
 
-			return generate_board_url() . '/' . $this->url_helper->generate_forum_link($page_data['id'], (string) $forum_name);
+			return generate_board_url() . '/' . $this->url_helper->generate_forum_link($page_data['id'], (string) $forum_name, (string) $forum_slug);
 		}
 
 		$base_script_name = $script_name;
@@ -1256,5 +1284,189 @@ class listener implements EventSubscriberInterface
 		{
 			$event['redirect'] = substr($redirect, 0, -strlen($match[0]));
 		}
+	}
+
+	public function acp_manage_forums_request_data($event)
+	{
+		$forum_url = $this->request->variable('vinny_url_forum_slug', '', true);
+		$forum_url = $this->url_helper->clean_url($forum_url);
+		$event->update_subarray('forum_data', 'vinny_url_forum_slug', $forum_url);
+	}
+
+	public function acp_manage_forums_initialise_data($event)
+	{
+		if ($event['action'] !== 'edit' && !$event['update'])
+		{
+			$event->update_subarray('forum_data', 'vinny_url_forum_slug', '');
+		}
+	}
+
+	public function acp_manage_forums_display_form($event)
+	{
+		$forum_data = $event['forum_data'];
+		$event->update_subarray('template_data', 'VINNY_URL_FORUM_SLUG', isset($forum_data['vinny_url_forum_slug']) ? $forum_data['vinny_url_forum_slug'] : '');
+	}
+
+	public function acp_manage_forums_validate_data($event)
+	{
+		$forum_data = $event['forum_data'];
+		$forum_url = isset($forum_data['vinny_url_forum_slug']) ? (string) $forum_data['vinny_url_forum_slug'] : '';
+
+		if (utf8_strlen($forum_url) > 255)
+		{
+			$errors = $event['errors'];
+			$errors[] = $this->user->lang('VINNY_URL_FORUM_SLUG_TOO_LONG');
+			$event['errors'] = $errors;
+			return;
+		}
+
+		if ($forum_url !== '' && $this->url_helper->clean_url($forum_url) !== $forum_url)
+		{
+			$errors = $event['errors'];
+			$errors[] = $this->user->lang('VINNY_URL_FORUM_SLUG_WRONG_FORMAT');
+			$event['errors'] = $errors;
+		}
+	}
+
+	public function acp_manage_forums_update_data_after($event)
+	{
+		$this->forum_cache = null;
+	}
+
+	public function resolve_forum_url($event)
+	{
+		if (defined('IN_ADMIN') && IN_ADMIN)
+		{
+			return;
+		}
+
+		if (empty($this->config['vinny_url_rewrite_enable']))
+		{
+			return;
+		}
+
+		$forum_uri = $this->request->variable('forum_url', '', true);
+		if (!$forum_uri)
+		{
+			return;
+		}
+
+		$forum_uri = $this->url_helper->clean_url($forum_uri);
+		$forum_id = 0;
+
+		$sql = 'SELECT forum_id, forum_name, vinny_url_forum_slug FROM ' . FORUMS_TABLE;
+		$result = $this->db->sql_query($sql, 7200);
+		while ($row = $this->db->sql_fetchrow($result))
+		{
+			$custom_url = !empty($row['vinny_url_forum_slug']) ? $this->url_helper->clean_url($row['vinny_url_forum_slug']) : '';
+			$fallback_url = $this->url_helper->clean_url($row['forum_name']);
+
+			if (($custom_url && $custom_url === $forum_uri) || (!$custom_url && $fallback_url === $forum_uri))
+			{
+				$forum_id = (int) $row['forum_id'];
+				break;
+			}
+		}
+		$this->db->sql_freeresult($result);
+
+		if ($forum_id)
+		{
+			$this->request->overwrite('f', $forum_id, \phpbb\request\request_interface::GET);
+			$this->request->overwrite('f', $forum_id, \phpbb\request\request_interface::REQUEST);
+		}
+	}
+
+	public function rewrite_member_url($event)
+	{
+		if (empty($this->config['vinny_url_rewrite_enable']) || empty($this->config['vinny_url_members_enable']))
+		{
+			return;
+		}
+
+		if (empty($event['user_id']) || empty($event['username']))
+		{
+			return;
+		}
+
+		$new_url = generate_board_url() . '/' . $this->url_helper->generate_member_link($event['username']);
+
+		if ($event['mode'] === 'profile')
+		{
+			$event['username_string'] = $new_url;
+			return;
+		}
+
+		if (preg_match('/href="[^"]+"/', $event['username_string']))
+		{
+			$event['username_string'] = preg_replace('/href="[^"]+"/', 'href="' . $new_url . '"', $event['username_string']);
+		}
+	}
+
+	public function resolve_member_url($event)
+	{
+		if (defined('IN_ADMIN') && IN_ADMIN)
+		{
+			return;
+		}
+
+		if (empty($this->config['vinny_url_rewrite_enable']) || empty($this->config['vinny_url_members_enable']))
+		{
+			return;
+		}
+
+		$username_clean = $this->request->variable('un', '', true);
+
+		if ($username_clean === '')
+		{
+			return;
+		}
+
+		$sql = 'SELECT user_id
+			FROM ' . USERS_TABLE . "
+			WHERE username_clean = '" . $this->db->sql_escape(utf8_clean_string($username_clean)) . "'";
+
+		$result = $this->db->sql_query_limit($sql, 1);
+		$user_id = (int) $this->db->sql_fetchfield('user_id');
+		$this->db->sql_freeresult($result);
+
+		if ($user_id)
+		{
+			$this->request->overwrite('mode', 'viewprofile', \phpbb\request\request_interface::GET);
+			$this->request->overwrite('u', $user_id, \phpbb\request\request_interface::GET);
+			$this->request->overwrite('mode', 'viewprofile', \phpbb\request\request_interface::REQUEST);
+			$this->request->overwrite('u', $user_id, \phpbb\request\request_interface::REQUEST);
+		}
+	}
+
+	public function redirect_member_url($event)
+	{
+		if (defined('IN_ADMIN') && IN_ADMIN)
+		{
+			return;
+		}
+
+		if (empty($this->config['vinny_url_rewrite_enable']) || empty($this->config['vinny_url_redirect_enable']) || empty($this->config['vinny_url_members_enable']))
+		{
+			return;
+		}
+
+		$request_uri = $this->request->server('REQUEST_URI');
+
+		if (strpos($request_uri, 'memberlist.' . $this->php_ext) === false)
+		{
+			return;
+		}
+
+		if (empty($event['member']['username']))
+		{
+			return;
+		}
+
+		$redirect_url = generate_board_url() . '/' . $this->url_helper->generate_member_link($event['member']['username']);
+		$redirect_url = redirect($redirect_url, true);
+
+		garbage_collection();
+		header('Location: ' . $redirect_url, true, 301);
+		exit_handler();
 	}
 }

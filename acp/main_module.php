@@ -58,6 +58,8 @@ class main_module
 			$config->set('vinny_url_translit_enable', $this->normalise_bool($request->variable('vinny_url_translit_enable', 0)));
 			$config->set('vinny_url_opengraph_enable', $this->normalise_bool($request->variable('vinny_url_opengraph_enable', 0)));
 			$config->set('vinny_url_redirect_enable', $this->normalise_bool($request->variable('vinny_url_redirect_enable', 0)));
+			$config->set('vinny_url_min_word_length', max(0, $request->variable('vinny_url_min_word_length', 0)));
+			$config->set('vinny_url_members_enable', $this->normalise_bool($request->variable('vinny_url_members_enable', 0)));
 
 			trigger_error($user->lang('CONFIG_UPDATED') . adm_back_link($this->u_action));
 		}
@@ -69,6 +71,8 @@ class main_module
 			'VINNY_URL_TRANSLIT_ENABLE'     => $config['vinny_url_translit_enable'],
 			'VINNY_URL_OPENGRAPH_ENABLE'    => $config['vinny_url_opengraph_enable'],
 			'VINNY_URL_REDIRECT_ENABLE'     => $config['vinny_url_redirect_enable'],
+			'VINNY_URL_MIN_WORD_LENGTH'     => isset($config['vinny_url_min_word_length']) ? (int) $config['vinny_url_min_word_length'] : 0,
+			'VINNY_URL_MEMBERS_ENABLE'      => isset($config['vinny_url_members_enable']) ? $config['vinny_url_members_enable'] : 0,
 		));
 	}
 
@@ -110,8 +114,8 @@ class main_module
 		));
 
 		$this->add_faq_block($template, $user, 'ACP_URLREWRITING_FAQ_QUESTIONS', array(
-			'ACP_URLREWRITING_FAQ_Q_SEO'        => 'ACP_URLREWRITING_FAQ_A_SEO',
-			'ACP_URLREWRITING_FAQ_Q_OLD_LINKS'  => 'ACP_URLREWRITING_FAQ_A_OLD_LINKS',
+			'ACP_URLREWRITING_FAQ_Q_HUMAN_FRIENDLY' => 'ACP_URLREWRITING_FAQ_A_HUMAN_FRIENDLY',
+			'ACP_URLREWRITING_FAQ_Q_OLD_LINKS'      => 'ACP_URLREWRITING_FAQ_A_OLD_LINKS',
 			'ACP_URLREWRITING_FAQ_Q_404'        => 'ACP_URLREWRITING_FAQ_A_404',
 			'ACP_URLREWRITING_FAQ_Q_NGINX'      => 'ACP_URLREWRITING_FAQ_A_NGINX',
 			'ACP_URLREWRITING_FAQ_Q_CONFLICT'   => 'ACP_URLREWRITING_FAQ_A_CONFLICT',

@@ -25,6 +25,7 @@ class url_helper_test extends \phpbb_test_case
 		$this->config = new \phpbb\config\config(array(
 			'vinny_url_rewrite_mode'   => 1,
 			'vinny_url_translit_enable' => 1,
+			'vinny_url_min_word_length' => 0,
 		));
 
 		$this->url_helper = new \vinny\urlrewriting\helper\url_helper($this->config);
@@ -58,6 +59,14 @@ class url_helper_test extends \phpbb_test_case
 		$this->assertSame('simple-title-123', $result);
 	}
 
+	public function test_min_word_length()
+	{
+		$this->config['vinny_url_min_word_length'] = 3;
+
+		$result = $this->url_helper->clean_url('A quick brown fox');
+		$this->assertSame('quick-brown-fox', $result);
+	}
+
 	public function test_generate_topic_link_advanced_mode()
 	{
 		$this->config['vinny_url_rewrite_mode'] = 1;
@@ -82,6 +91,14 @@ class url_helper_test extends \phpbb_test_case
 		$this->assertSame('general-discussion-f45', $link);
 	}
 
+	public function test_generate_forum_link_custom_slug()
+	{
+		$this->config['vinny_url_rewrite_mode'] = 1;
+
+		$link = $this->url_helper->generate_forum_link(45, 'General Discussion', 'custom-slug');
+		$this->assertSame('custom-slug-f45', $link);
+	}
+
 	public function test_generate_forum_link_simple_mode()
 	{
 		$this->config['vinny_url_rewrite_mode'] = 0;
@@ -104,6 +121,12 @@ class url_helper_test extends \phpbb_test_case
 
 		$link = $this->url_helper->generate_post_link(678, 123, 'My Topic Title');
 		$this->assertSame('post-p678#p678', $link);
+	}
+
+	public function test_generate_member_link()
+	{
+		$link = $this->url_helper->generate_member_link('John Doe');
+		$this->assertSame('member/John%20Doe', $link);
 	}
 
 	public function test_helper_alias_methods()
