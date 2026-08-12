@@ -694,16 +694,25 @@ class listener implements EventSubscriberInterface
 		}
 
 		// Rewrite viewtopic.php links (HTML, XML, JSON, text)
-		$topic_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?viewtopic\.' . preg_quote($this->php_ext, '~') . '\?[^\s\]\)"<>\']+~i';
-		$html = preg_replace_callback($topic_pattern, array($this, 'rewrite_html_topic_link'), $html);
+		if (strpos($html, 'viewtopic.' . $this->php_ext) !== false)
+		{
+			$topic_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?viewtopic\.' . preg_quote($this->php_ext, '~') . '\?[^\s\]\)"<>\']+~i';
+			$html = preg_replace_callback($topic_pattern, array($this, 'rewrite_html_topic_link'), $html);
+		}
 
 		// Rewrite viewforum.php links (HTML, XML, JSON, text)
-		$forum_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?viewforum\.' . preg_quote($this->php_ext, '~') . '\?[^\s\]\)"<>\']+~i';
-		$html = preg_replace_callback($forum_pattern, array($this, 'rewrite_html_forum_link'), $html);
+		if (strpos($html, 'viewforum.' . $this->php_ext) !== false)
+		{
+			$forum_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?viewforum\.' . preg_quote($this->php_ext, '~') . '\?[^\s\]\)"<>\']+~i';
+			$html = preg_replace_callback($forum_pattern, array($this, 'rewrite_html_forum_link'), $html);
+		}
 
 		// Fix any topic URL with appended p=ID parameter (e.g. reader-response-t1439&p=1401050 or reader-response-t1439?p=1401050)
-		$broken_post_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?([^\s\]\)"<>\']+?-t(\d+))(?:&amp;|&|\?)p=(\d+)(#p\3)?~i';
-		$html = preg_replace_callback($broken_post_pattern, array($this, 'fix_malformed_post_link'), $html);
+		if (strpos($html, '-t') !== false && strpos($html, 'p=') !== false)
+		{
+			$broken_post_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?([^\s\]\)"<>\']+?-t(\d+))(?:&amp;|&|\?)p=(\d+)(#p\3)?~i';
+			$html = preg_replace_callback($broken_post_pattern, array($this, 'fix_malformed_post_link'), $html);
+		}
 
 		return $html;
 	}
