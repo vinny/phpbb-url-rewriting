@@ -73,7 +73,7 @@ RewriteRule ^.*-t([0-9]+)-p([0-9]+)$ viewtopic.php?t=$1&p=$2 [QSA,L]
 # Forums
 RewriteRule ^.*-f([0-9]+)$ viewforum.php?f=$1 [QSA,L]
 # Members
-RewriteRule ^member/(.+)$ memberlist.php?mode=viewprofile&un=$1 [QSA,L]
+RewriteRule ^member/(.+)$ memberlist.php?mode=viewprofile&un=$1 [B,QSA,L]
 # Vinny URL Rewriting Apache Rules - end',
 	'ACP_URLREWRITING_APACHE_RULES_SIMPLE'     => '# Vinny URL Rewriting Apache Rules - begin
 # IMPORTANT: Place these rules before the default phpBB app.php rewrites.
@@ -84,7 +84,7 @@ RewriteRule ^post-p([0-9]+)$ viewtopic.php?p=$1 [QSA,L]
 # Forums
 RewriteRule ^forum-f([0-9]+)$ viewforum.php?f=$1 [QSA,L]
 # Members
-RewriteRule ^member/(.+)$ memberlist.php?mode=viewprofile&un=$1 [QSA,L]
+RewriteRule ^member/(.+)$ memberlist.php?mode=viewprofile&un=$1 [B,QSA,L]
 # Vinny URL Rewriting Apache Rules - end',
 	'ACP_URLREWRITING_NGINX_RULES_ADVANCED'    => '# Vinny URL Rewriting NGINX Rules - begin
 # Topics

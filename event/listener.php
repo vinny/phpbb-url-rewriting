@@ -127,10 +127,14 @@ class listener implements EventSubscriberInterface
 		{
 			$url = $this->build_forum_url($parsed_params, $is_amp);
 		}
+		else if ($script_name === 'memberlist.' . $this->php_ext)
+		{
+			$url = $this->build_member_url($parsed_params);
+		}
 
 		if ($url && $url !== $original_url)
 		{
-			$event['append_sid_overwrite'] = $url;
+			$event['append_sid_overwrite'] = generate_board_url() . '/' . ltrim($url, '/');
 		}
 	}
 
@@ -558,6 +562,65 @@ class listener implements EventSubscriberInterface
 		return $this->append_extra_params($friendly_url, $params, array('f', 'sid'), $is_amp);
 	}
 
+	protected $user_id_cache = array();
+
+	protected function get_username_by_id($user_id)
+	{
+		$user_id = (int) $user_id;
+		if (!$user_id)
+		{
+			return '';
+		}
+
+		if (isset($this->user_id_cache[$user_id]))
+		{
+			return $this->user_id_cache[$user_id];
+		}
+
+		$sql = 'SELECT username FROM ' . USERS_TABLE . ' WHERE user_id = ' . (int) $user_id;
+		$result = $this->db->sql_query($sql, 3600);
+		$username = (string) $this->db->sql_fetchfield('username');
+		$this->db->sql_freeresult($result);
+
+		$this->user_id_cache[$user_id] = $username;
+
+		return $username;
+	}
+
+	protected function build_member_url(array $params)
+	{
+		if (empty($this->config['vinny_url_members_enable']))
+		{
+			return '';
+		}
+
+		$mode = isset($params['mode']) ? $params['mode'] : '';
+		if ($mode !== 'viewprofile')
+		{
+			return '';
+		}
+
+		$username = '';
+		if (!empty($params['un']))
+		{
+			$username = rawurldecode($params['un']);
+		}
+		else if (!empty($params['u']))
+		{
+			$user_id = (int) $params['u'];
+			$username = $this->get_username_by_id($user_id);
+		}
+
+		if (!$username)
+		{
+			return '';
+		}
+
+		$friendly_url = $this->url_helper->generate_member_link($username);
+
+		return $this->append_extra_params($friendly_url, $params, array('mode', 'u', 'un', 'sid'));
+	}
+
 	protected function append_extra_params($url, array $params, array $ignored_params, $is_amp = true)
 	{
 		$anchor = '';
@@ -707,6 +770,13 @@ class listener implements EventSubscriberInterface
 			$html = preg_replace_callback($forum_pattern, array($this, 'rewrite_html_forum_link'), $html);
 		}
 
+		// Rewrite member profile links (HTML, XML, JSON, text)
+		if (!empty($this->config['vinny_url_members_enable']) && strpos($html, 'memberlist.' . $this->php_ext) !== false)
+		{
+			$member_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?memberlist\.' . preg_quote($this->php_ext, '~') . '\?[^\s\]\)"<>\']+~i';
+			$html = preg_replace_callback($member_pattern, array($this, 'rewrite_html_member_link'), $html);
+		}
+
 		// Fix any topic URL with appended p=ID parameter (e.g. reader-response-t1439&p=1401050 or reader-response-t1439?p=1401050)
 		if (strpos($html, '-t') !== false && strpos($html, 'p=') !== false)
 		{
@@ -814,6 +884,44 @@ class listener implements EventSubscriberInterface
 		return $url;
 	}
 
+	public function rewrite_html_member_link($matches)
+	{
+		$url = $matches[0];
+		$parts = parse_url(html_entity_decode($url, ENT_QUOTES, 'UTF-8'));
+
+		if (empty($parts['query']))
+		{
+			return $url;
+		}
+
+		parse_str(str_replace('&amp;', '&', $parts['query']), $params);
+
+		$mode = isset($params['mode']) ? $params['mode'] : '';
+		if ($mode !== 'viewprofile')
+		{
+			return $url;
+		}
+
+		$username = '';
+		if (!empty($params['un']))
+		{
+			$username = rawurldecode($params['un']);
+		}
+		else if (!empty($params['u']))
+		{
+			$user_id = (int) $params['u'];
+			$username = $this->get_username_by_id($user_id);
+		}
+
+		if ($username)
+		{
+			$friendly = $this->url_helper->generate_member_link($username);
+			return $friendly ? $this->rebuild_url_with_friendly_path($url, $friendly, $params, array('mode', 'u', 'un')) : $url;
+		}
+
+		return $url;
+	}
+
 	protected function rebuild_url_with_friendly_path($original_url, $friendly_path, array $params, array $consumed_keys)
 	{
 		foreach ($consumed_keys as $key)
@@ -829,19 +937,10 @@ class listener implements EventSubscriberInterface
 			$original_url = substr($original_url, 0, $hash_pos);
 		}
 
-		$parts = parse_url($original_url);
-		$path = isset($parts['path']) ? $parts['path'] : '';
-		$dir = dirname($path);
-		$base_prefix = ($dir !== '.' && $dir !== '/' && $dir !== '\\') ? rtrim($dir, '/\\') . '/' : '';
-
-		if (isset($parts['scheme']) && isset($parts['host']))
-		{
-			$base_prefix = $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '') . '/' . ltrim($base_prefix, '/');
-		}
-
+		$base_prefix = generate_board_url() . '/';
 		$query_string = !empty($params) ? '?' . http_build_query($params, '', '&amp;') : '';
 
-		return $base_prefix . $friendly_path . $query_string . $fragment;
+		return $base_prefix . ltrim($friendly_path, '/') . $query_string . $fragment;
 	}
 
 	protected function fix_viewtopic_action_urls()
@@ -1429,6 +1528,8 @@ class listener implements EventSubscriberInterface
 		{
 			return;
 		}
+
+		$username_clean = rawurldecode($username_clean);
 
 		$sql = 'SELECT user_id
 			FROM ' . USERS_TABLE . "
