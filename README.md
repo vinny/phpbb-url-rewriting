@@ -82,6 +82,9 @@ RewriteRule ^.*-t([0-9]+)$ %1/viewtopic.php?t=$1 [QSA,R=301,L]
 # 3. Redirect forum links (e.g., slug-f45 or forum-f45)
 RewriteCond %{REQUEST_URI} ^(.*)/[^/]+-f([0-9]+)$
 RewriteRule ^.*-f([0-9]+)$ %1/viewforum.php?f=$1 [QSA,R=301,L]
+
+# 4. Redirect member profile links (e.g., member/username)
+RewriteRule ^member/(.+)$ memberlist.php?mode=viewprofile&un=$1 [B,QSA,R=301,L]
 ```
 
 ### NGINX Fallback
@@ -103,6 +106,9 @@ rewrite ^(.*)/[^/]+-t([0-9]+)$ $1/viewtopic.php?t=$2 permanent;
 
 # 3. Redirect forum links (e.g., slug-f45 or forum-f45)
 rewrite ^(.*)/[^/]+-f([0-9]+)$ $1/viewforum.php?f=$2 permanent;
+
+# 4. Redirect member profile links (e.g., member/username)
+rewrite ^/member/(.+)$ /memberlist.php?mode=viewprofile&un=$1 permanent;
 ```
 
 ## Support
