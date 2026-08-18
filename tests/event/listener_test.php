@@ -35,6 +35,12 @@ class listener_test extends \phpbb_test_case
 
 		$this->config = new \phpbb\config\config(array(
 			'vinny_url_rewrite_enable' => 1,
+			'force_server_vars'        => 1,
+			'server_protocol'          => 'https://',
+			'server_name'              => 'example.com',
+			'server_port'              => 443,
+			'script_path'              => '/phpBB',
+			'cookie_secure'            => 1,
 		));
 
 		$this->template = $this->getMockBuilder('\phpbb\template\template')
@@ -44,6 +50,11 @@ class listener_test extends \phpbb_test_case
 		$this->user = $this->getMockBuilder('\phpbb\user')
 			->disableOriginalConstructor()
 			->getMock();
+		$this->user->host = 'example.com';
+
+		global $config, $user;
+		$config = $this->config;
+		$user = $this->user;
 
 		$this->url_helper = $this->getMockBuilder('\vinny\urlrewriting\helper\url_helper')
 			->disableOriginalConstructor()
@@ -77,7 +88,7 @@ class listener_test extends \phpbb_test_case
 		$this->assertArrayHasKey('core.append_sid', $events);
 		$this->assertArrayHasKey('core.page_header', $events);
 		$this->assertArrayHasKey('core.page_header_after', $events);
-		$this->assertArrayHasKey(KernelEvents::RESPONSE, $events);
+		$this->assertArrayHasKey('core.twig_environment_render_template_after', $events);
 		$this->assertArrayHasKey('core.viewforum_modify_topicrow', $events);
 		$this->assertArrayHasKey('core.approve_posts_after', $events);
 		$this->assertArrayHasKey('core.approve_topics_after', $events);
@@ -90,5 +101,32 @@ class listener_test extends \phpbb_test_case
 		$this->config['vinny_url_rewrite_enable'] = 0;
 		$html = '<a href="viewtopic.php?t=123">Link</a>';
 		$this->assertSame($html, $this->listener->process_html_output($html));
+	}
+
+	public function test_rewrite_url_with_fragment_param()
+	{
+		$this->url_helper->expects($this->any())
+			->method('generate_post_link')
+			->willReturn('topic-slug-t1-p123#p123');
+
+		$feed_event = new \phpbb\event\data(array(
+			'row' => array(
+				'post_id'     => 123,
+				'topic_id'    => 1,
+				'topic_title' => 'Test Topic',
+			),
+		));
+		$this->listener->rewrite_feed_row($feed_event);
+
+		$event = new \phpbb\event\data(array(
+			'url' => 'viewtopic.php',
+			'params' => 'p=123#p123',
+			'is_amp' => true,
+			'append_sid_overwrite' => false,
+		));
+
+		$this->listener->rewrite_url($event);
+		$this->assertNotEmpty($event['append_sid_overwrite']);
+		$this->assertStringContainsString('topic-slug-t1-p123#p123', $event['append_sid_overwrite']);
 	}
 }

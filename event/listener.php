@@ -11,7 +11,6 @@
 namespace vinny\urlrewriting\event;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Symfony\Component\HttpKernel\KernelEvents;
 
 class listener implements EventSubscriberInterface
 {
@@ -25,6 +24,9 @@ class listener implements EventSubscriberInterface
 	protected $php_ext;
 
 	protected $forum_cache = null;
+	protected $topic_cache = array();
+	protected $topic_forum_cache = array();
+	protected $post_topic_cache = array();
 
 	public function __construct(\phpbb\auth\auth $auth, \phpbb\config\config $config, \phpbb\template\template $template, \phpbb\user $user, \vinny\urlrewriting\helper\url_helper $url_helper, \phpbb\db\driver\driver_interface $db, \phpbb\request\request $request, $php_ext)
 	{
@@ -36,6 +38,28 @@ class listener implements EventSubscriberInterface
 		$this->db = $db;
 		$this->request = $request;
 		$this->php_ext = $php_ext;
+	}
+
+	protected function get_board_url()
+	{
+		global $user, $config;
+
+		if (!isset($user) || $user === null)
+		{
+			$user = $this->user;
+		}
+
+		if (!isset($config) || $config === null)
+		{
+			$config = $this->config;
+		}
+
+		if (function_exists('generate_board_url'))
+		{
+			return generate_board_url();
+		}
+
+		return '';
 	}
 
 	protected function get_forum_data($forum_id)
@@ -85,7 +109,7 @@ class listener implements EventSubscriberInterface
 			'core.append_sid'							=> 'rewrite_url',
 			'core.page_header'							=> 'handle_page_header',
 			'core.page_header_after'					=> 'redirect_url',
-			KernelEvents::RESPONSE						=> 'on_kernel_response',
+			'core.twig_environment_render_template_after' => 'on_template_render_after',
 			'core.viewforum_modify_topicrow'			=> 'rewrite_viewforum_links',
 			'core.display_forums_modify_template_vars'	=> 'rewrite_last_post_links',
 			'core.viewtopic_modify_post_row'			=> 'rewrite_viewtopic_post_links',
@@ -134,7 +158,7 @@ class listener implements EventSubscriberInterface
 
 		if ($url && $url !== $original_url)
 		{
-			$event['append_sid_overwrite'] = generate_board_url() . '/' . ltrim($url, '/');
+			$event['append_sid_overwrite'] = $this->get_board_url() . '/' . ltrim($url, '/');
 		}
 	}
 
@@ -301,17 +325,13 @@ class listener implements EventSubscriberInterface
 
 				if ($friendly_path)
 				{
-					$tpl_ary['LINK'] = generate_board_url() . '/' . $friendly_path;
+					$tpl_ary['LINK'] = $this->get_board_url() . '/' . $friendly_path;
 				}
 			}
 		}
 
 		$event['tpl_ary'] = $tpl_ary;
 	}
-
-	protected $topic_cache = array();
-	protected $topic_forum_cache = array();
-	protected $post_topic_cache = array();
 
 	protected function get_topic_title($topic_id)
 	{
@@ -380,7 +400,7 @@ class listener implements EventSubscriberInterface
 
 		$friendly_path = $this->url_helper->generate_post_link($post_id, $topic_info['topic_id'], $topic_info['topic_title']);
 
-		return $friendly_path ? generate_board_url() . '/' . $friendly_path : '';
+		return $friendly_path ? $this->get_board_url() . '/' . $friendly_path : '';
 	}
 
 	protected function replace_viewtopic_post_urls($text, $post_id, $replacement_url)
@@ -450,7 +470,7 @@ class listener implements EventSubscriberInterface
 			$friendly_url = '';
 		}
 
-		return $friendly_url ? generate_board_url() . '/' . $friendly_url : $url;
+		return $friendly_url ? $this->get_board_url() . '/' . $friendly_url : $url;
 	}
 
 	protected function get_script_name_from_url($url)
@@ -482,9 +502,20 @@ class listener implements EventSubscriberInterface
 		}
 		else if (is_string($params) && $params !== '')
 		{
+			$param_fragment = '';
+			if (strpos($params, '#') !== false)
+			{
+				list($params, $param_fragment) = explode('#', $params, 2);
+			}
+
 			$params = ltrim($params, '?&');
 			parse_str(str_replace('&amp;', '&', $params), $string_params);
 			$parsed_params = array_merge($parsed_params, $string_params);
+
+			if ($param_fragment !== '')
+			{
+				$parsed_params['#'] = $param_fragment;
+			}
 		}
 
 		if ($fragment)
@@ -670,10 +701,9 @@ class listener implements EventSubscriberInterface
 	{
 		$this->fix_viewtopic_action_urls();
 		$this->add_open_graph_tags($event);
-		$this->start_output_buffer();
 	}
 
-	protected function start_output_buffer()
+	public function on_template_render_after($event)
 	{
 		if (defined('IN_ADMIN') && IN_ADMIN)
 		{
@@ -685,10 +715,7 @@ class listener implements EventSubscriberInterface
 			return;
 		}
 
-		if (!headers_sent())
-		{
-			ob_start(array($this, 'process_html_output'));
-		}
+		$event['output'] = $this->process_html_output($event['output']);
 	}
 
 	public function rewrite_feed_row($event)
@@ -700,53 +727,29 @@ class listener implements EventSubscriberInterface
 
 		$row = $event['row'];
 
-		if (!empty($row['link']))
+		if (!empty($row['post_id']) && !empty($row['topic_id']))
 		{
-			$row['link'] = $this->process_html_output($row['link']);
+			$this->post_topic_cache[(int) $row['post_id']] = array(
+				'topic_id'    => (int) $row['topic_id'],
+				'forum_id'    => isset($row['forum_id']) ? (int) $row['forum_id'] : 0,
+				'topic_title' => isset($row['topic_title']) ? (string) $row['topic_title'] : '',
+			);
 		}
 
-		if (!empty($row['id']))
+		if (!empty($row['topic_id']) && !empty($row['topic_title']))
 		{
-			$row['id'] = $this->process_html_output($row['id']);
+			$this->topic_cache[(int) $row['topic_id']] = (string) $row['topic_title'];
 		}
 
-		if (!empty($row['text']))
+		foreach ($row as $key => $value)
 		{
-			$row['text'] = $this->process_html_output($row['text']);
+			if (is_string($value) && (strpos($value, 'viewtopic.' . $this->php_ext) !== false || strpos($value, 'viewforum.' . $this->php_ext) !== false || strpos($value, 'memberlist.' . $this->php_ext) !== false))
+			{
+				$row[$key] = $this->process_html_output($value);
+			}
 		}
 
 		$event['row'] = $row;
-	}
-
-	public function on_kernel_response($event)
-	{
-		if (defined('IN_ADMIN') && IN_ADMIN)
-		{
-			return;
-		}
-
-		if (empty($this->config['vinny_url_rewrite_enable']))
-		{
-			return;
-		}
-
-		$response = method_exists($event, 'getResponse') ? $event->getResponse() : null;
-		if (!$response)
-		{
-			return;
-		}
-
-		$content = $response->getContent();
-		if (empty($content))
-		{
-			return;
-		}
-
-		$new_content = $this->process_html_output($content);
-		if ($new_content !== $content && $new_content !== null)
-		{
-			$response->setContent($new_content);
-		}
 	}
 
 	public function process_html_output($html)
@@ -937,7 +940,7 @@ class listener implements EventSubscriberInterface
 			$original_url = substr($original_url, 0, $hash_pos);
 		}
 
-		$base_prefix = generate_board_url() . '/';
+		$base_prefix = $this->get_board_url() . '/';
 		$query_string = !empty($params) ? '?' . http_build_query($params, '', '&amp;') : '';
 
 		return $base_prefix . ltrim($friendly_path, '/') . $query_string . $fragment;
@@ -988,8 +991,8 @@ class listener implements EventSubscriberInterface
 		if ($topic_url)
 		{
 			$this->template->assign_vars(array(
-				'U_TOPIC'		=> generate_board_url() . '/' . $topic_url,
-				'U_CANONICAL'	=> generate_board_url() . '/' . $topic_url,
+				'U_TOPIC'		=> $this->get_board_url() . '/' . $topic_url,
+				'U_CANONICAL'	=> $this->get_board_url() . '/' . $topic_url,
 			));
 		}
 
@@ -1142,15 +1145,16 @@ class listener implements EventSubscriberInterface
 		if ($page_data['mode'] === 'topic' && $page_data['id'])
 		{
 			$title = $this->get_topic_title($page_data['id']);
-
-			return generate_board_url() . '/' . $this->url_helper->generate_topic_link($page_data['id'], (string) $title);
+			return $this->get_board_url() . '/' . $this->url_helper->generate_topic_link($page_data['id'], (string) $title);
 		}
-
-		if ($page_data['mode'] === 'forum' && $page_data['id'])
+		else if ($page_data['mode'] === 'forum' && $page_data['id'])
 		{
 			list($forum_name, $forum_slug) = $this->get_forum_name_and_slug($page_data['id']);
-
-			return generate_board_url() . '/' . $this->url_helper->generate_forum_link($page_data['id'], (string) $forum_name, (string) $forum_slug);
+			return $this->get_board_url() . '/' . $this->url_helper->generate_forum_link($page_data['id'], (string) $forum_name, (string) $forum_slug);
+		}
+		else if ($page_data['mode'] === 'index')
+		{
+			return $this->get_board_url() . '/';
 		}
 
 		$base_script_name = $script_name;
@@ -1159,12 +1163,7 @@ class listener implements EventSubscriberInterface
 			$base_script_name = substr($base_script_name, 0, $pos);
 		}
 
-		if ($base_script_name === 'index.' . $this->php_ext)
-		{
-			return generate_board_url() . '/';
-		}
-
-		return generate_board_url() . '/' . $base_script_name;
+		return $this->get_board_url() . '/' . $base_script_name;
 	}
 
 	protected function get_forum_open_graph_description($forum_id, $default_description)
@@ -1246,14 +1245,14 @@ class listener implements EventSubscriberInterface
 		$img_url = $matches[1];
 		if (strpos($img_url, './') === 0)
 		{
-			$img_url = generate_board_url() . '/' . substr($img_url, 2);
+			$img_url = $this->get_board_url() . '/' . substr($img_url, 2);
 		}
-		else if (strpos($img_url, 'http') !== 0 && strpos($img_url, '//') !== 0)
+		else if (strpos($img_url, '/') === 0)
 		{
-			$img_url = generate_board_url() . '/' . ltrim($img_url, '/');
+			$img_url = $this->get_board_url() . '/' . ltrim($img_url, '/');
 		}
 
-		$smilies_path = generate_board_url() . '/' . $this->config['smilies_path'];
+		$smilies_path = $this->get_board_url() . '/' . $this->config['smilies_path'];
 
 		return (strpos($img_url, $smilies_path) === false) ? $img_url : '';
 	}
@@ -1277,14 +1276,13 @@ class listener implements EventSubscriberInterface
 		$attachment = $this->db->sql_fetchrow($result);
 		$this->db->sql_freeresult($result);
 
-		return $attachment ? generate_board_url() . '/download/file.' . $this->php_ext . '?id=' . $attachment['attach_id'] : '';
+		return $attachment ? $this->get_board_url() . '/download/file.' . $this->php_ext . '?id=' . $attachment['attach_id'] : '';
 	}
 
 	protected function get_default_open_graph_image()
 	{
-		$theme_path = (isset($this->user->theme['theme_path'])) ? $this->user->theme['theme_path'] : 'prosilver';
-
-		return generate_board_url() . '/styles/' . $theme_path . '/theme/images/site_logo.svg';
+		$theme_path = isset($this->user->theme['theme_path']) ? $this->user->theme['theme_path'] : 'prosilver';
+		return $this->get_board_url() . '/styles/' . $theme_path . '/theme/images/site_logo.svg';
 	}
 
 	public function redirect_url($event)
@@ -1332,17 +1330,15 @@ class listener implements EventSubscriberInterface
 			$friendly_url = $this->build_forum_url($friendly_params, false);
 		}
 
-		if (!$friendly_url)
+		if ($friendly_url)
 		{
-			return;
+			$redirect_url = $this->get_board_url() . '/' . $friendly_url;
+			$redirect_url = redirect($redirect_url, true);
+
+			garbage_collection();
+			header('Location: ' . $redirect_url, true, 301);
+			exit_handler();
 		}
-
-		$redirect_url = generate_board_url() . '/' . $friendly_url;
-		$redirect_url = redirect($redirect_url, true);
-
-		garbage_collection();
-		header('Location: ' . $redirect_url, true, 301);
-		exit_handler();
 	}
 
 	protected function get_redirect_query_params(array $ignored_params)
@@ -1496,7 +1492,7 @@ class listener implements EventSubscriberInterface
 			return;
 		}
 
-		$new_url = generate_board_url() . '/' . $this->url_helper->generate_member_link($event['username']);
+		$new_url = $this->get_board_url() . '/' . $this->url_helper->generate_member_link($event['username']);
 
 		if ($event['mode'] === 'profile')
 		{
@@ -1572,7 +1568,7 @@ class listener implements EventSubscriberInterface
 			return;
 		}
 
-		$redirect_url = generate_board_url() . '/' . $this->url_helper->generate_member_link($event['member']['username']);
+		$redirect_url = $this->get_board_url() . '/' . $this->url_helper->generate_member_link($event['member']['username']);
 		$redirect_url = redirect($redirect_url, true);
 
 		garbage_collection();

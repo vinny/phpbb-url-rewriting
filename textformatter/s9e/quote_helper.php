@@ -89,7 +89,7 @@ class quote_helper extends \phpbb\textformatter\s9e\quote_helper
 		if ($row)
 		{
 			$friendly_path = $this->url_helper->generate_post_link($post_id, $row['topic_id'], $row['topic_title']);
-			$url = generate_board_url() . '/' . $friendly_path;
+			$url = $this->get_board_url() . '/' . $friendly_path;
 			$this->cache[$post_id] = $url;
 
 			return $url;
@@ -98,5 +98,27 @@ class quote_helper extends \phpbb\textformatter\s9e\quote_helper
 		$this->cache[$post_id] = null;
 
 		return null;
+	}
+
+	protected function get_board_url()
+	{
+		global $user, $config;
+
+		if (!isset($user) || $user === null)
+		{
+			$user = $this->user;
+		}
+
+		if (!isset($config) || $config === null)
+		{
+			$config = $this->config;
+		}
+
+		if (function_exists('generate_board_url'))
+		{
+			return generate_board_url();
+		}
+
+		return '';
 	}
 }
