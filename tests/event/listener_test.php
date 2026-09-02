@@ -24,6 +24,8 @@ class listener_test extends \phpbb_test_case
 	protected $url_helper;
 	protected $db;
 	protected $request;
+	protected $content_visibility;
+	protected $cache;
 
 	public function setUp(): void
 	{
@@ -68,6 +70,14 @@ class listener_test extends \phpbb_test_case
 			->disableOriginalConstructor()
 			->getMock();
 
+		$this->content_visibility = $this->getMockBuilder('\phpbb\content_visibility')
+			->disableOriginalConstructor()
+			->getMock();
+
+		$this->cache = $this->getMockBuilder('\phpbb\cache\driver\driver_interface')
+			->disableOriginalConstructor()
+			->getMock();
+
 		$this->listener = new \vinny\urlrewriting\event\listener(
 			$this->auth,
 			$this->config,
@@ -76,6 +86,8 @@ class listener_test extends \phpbb_test_case
 			$this->url_helper,
 			$this->db,
 			$this->request,
+			$this->content_visibility,
+			$this->cache,
 			'php'
 		);
 	}

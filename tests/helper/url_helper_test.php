@@ -137,4 +137,13 @@ class url_helper_test extends \phpbb_test_case
 		$this->assertSame('general-discussion-f45', $this->url_helper->forum_path(45, 'General Discussion'));
 		$this->assertSame('my-topic-title-t123-p678#p678', $this->url_helper->post_path(678, 123, 'My Topic Title'));
 	}
+
+	public function test_is_enabled()
+	{
+		$this->config['vinny_url_rewrite_enable'] = 1;
+		$this->assertTrue($this->url_helper->is_enabled());
+
+		$this->config['vinny_url_rewrite_enable'] = 0;
+		$this->assertFalse($this->url_helper->is_enabled());
+	}
 }

@@ -217,6 +217,16 @@ class url_helper
 		return $this->generate_post_link($post_id, $topic_id, $topic_title);
 	}
 
+	/**
+	 * Check if URL rewriting is enabled
+	 *
+	 * @return bool
+	 */
+	public function is_enabled()
+	{
+		return !empty($this->config['vinny_url_rewrite_enable']);
+	}
+
 	protected function prepare_text($text)
 	{
 		$text = (string) $text;

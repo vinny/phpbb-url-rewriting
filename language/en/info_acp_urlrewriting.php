@@ -34,6 +34,7 @@ $lang = array_merge($lang, array(
 
 	'VINNY_URL_FORUM_SLUG'                  => 'Custom forum URL slug',
 	'VINNY_URL_FORUM_SLUG_EXPLAIN'          => 'Optional custom URL text for this forum. If left blank, the forum name will be used.',
+	'VINNY_URL_FORUM_SLUG_PLACEHOLDER'      => 'forum-name',
 	'VINNY_URL_FORUM_SLUG_TOO_LONG'         => 'The custom forum URL slug must not exceed 255 characters.',
 	'VINNY_URL_FORUM_SLUG_WRONG_FORMAT'     => 'The custom forum URL slug contains invalid characters.',
 

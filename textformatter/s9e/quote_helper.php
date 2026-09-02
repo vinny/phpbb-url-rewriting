@@ -18,12 +18,18 @@ class quote_helper extends \phpbb\textformatter\s9e\quote_helper
 
 	protected $cache = array();
 
-	public function __construct(\phpbb\user $user, $root_path, $php_ext, \phpbb\db\driver\driver_interface $db, \phpbb\config\config $config, \vinny\urlrewriting\helper\url_helper $url_helper)
+	protected $auth;
+	protected $content_visibility;
+	protected $unlocked_forums = null;
+
+	public function __construct(\phpbb\user $user, $root_path, $php_ext, \phpbb\db\driver\driver_interface $db, \phpbb\config\config $config, \vinny\urlrewriting\helper\url_helper $url_helper, \phpbb\auth\auth $auth, \phpbb\content_visibility $content_visibility)
 	{
 		parent::__construct($user, $root_path, $php_ext);
 		$this->db = $db;
 		$this->config = $config;
 		$this->url_helper = $url_helper;
+		$this->auth = $auth;
+		$this->content_visibility = $content_visibility;
 	}
 
 	public function inject_metadata($xml)
@@ -64,6 +70,43 @@ class quote_helper extends \phpbb\textformatter\s9e\quote_helper
 		);
 	}
 
+	protected function is_forum_accessible($forum_id, $has_password)
+	{
+		if (!$this->auth->acl_get('f_read', $forum_id))
+		{
+			return false;
+		}
+
+		if ($has_password)
+		{
+			if ($this->unlocked_forums === null)
+			{
+				$this->unlocked_forums = array();
+
+				if (!empty($this->user->session_id))
+				{
+					$sql = 'SELECT forum_id
+						FROM ' . FORUMS_ACCESS_TABLE . "
+						WHERE session_id = '" . $this->db->sql_escape($this->user->session_id) . "'
+							AND user_id = " . (int) $this->user->data['user_id'];
+					$result = $this->db->sql_query($sql);
+					while ($row = $this->db->sql_fetchrow($result))
+					{
+						$this->unlocked_forums[(int) $row['forum_id']] = true;
+					}
+					$this->db->sql_freeresult($result);
+				}
+			}
+
+			if (!isset($this->unlocked_forums[$forum_id]))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	protected function get_friendly_post_url($post_id)
 	{
 		$post_id = (int) $post_id;
@@ -78,15 +121,16 @@ class quote_helper extends \phpbb\textformatter\s9e\quote_helper
 			return $this->cache[$post_id];
 		}
 
-		$sql = 'SELECT t.topic_id, t.topic_title
+		$sql = 'SELECT t.topic_id, t.forum_id, t.topic_title, t.topic_poster, t.topic_visibility, p.poster_id, p.post_visibility, f.forum_password
 			FROM ' . POSTS_TABLE . ' p
 			JOIN ' . TOPICS_TABLE . ' t ON t.topic_id = p.topic_id
+			JOIN ' . FORUMS_TABLE . ' f ON f.forum_id = t.forum_id
 			WHERE p.post_id = ' . (int) $post_id;
 		$result = $this->db->sql_query($sql, 600);
 		$row = $this->db->sql_fetchrow($result);
 		$this->db->sql_freeresult($result);
 
-		if ($row)
+		if ($row && $this->is_forum_accessible((int) $row['forum_id'], !empty($row['forum_password'])) && $this->content_visibility->is_visible('topic', (int) $row['forum_id'], $row) && $this->content_visibility->is_visible('post', (int) $row['forum_id'], $row))
 		{
 			$friendly_path = $this->url_helper->generate_post_link($post_id, $row['topic_id'], $row['topic_title']);
 			$url = $this->get_board_url() . '/' . $friendly_path;

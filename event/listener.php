@@ -21,14 +21,17 @@ class listener implements EventSubscriberInterface
 	protected $url_helper;
 	protected $db;
 	protected $request;
+	protected $content_visibility;
+	protected $cache;
 	protected $php_ext;
 
 	protected $forum_cache = null;
 	protected $topic_cache = array();
 	protected $topic_forum_cache = array();
 	protected $post_topic_cache = array();
+	protected $unlocked_forums = null;
 
-	public function __construct(\phpbb\auth\auth $auth, \phpbb\config\config $config, \phpbb\template\template $template, \phpbb\user $user, \vinny\urlrewriting\helper\url_helper $url_helper, \phpbb\db\driver\driver_interface $db, \phpbb\request\request $request, $php_ext)
+	public function __construct(\phpbb\auth\auth $auth, \phpbb\config\config $config, \phpbb\template\template $template, \phpbb\user $user, \vinny\urlrewriting\helper\url_helper $url_helper, \phpbb\db\driver\driver_interface $db, \phpbb\request\request $request, \phpbb\content_visibility $content_visibility, \phpbb\cache\driver\driver_interface $cache, $php_ext)
 	{
 		$this->auth = $auth;
 		$this->config = $config;
@@ -37,6 +40,8 @@ class listener implements EventSubscriberInterface
 		$this->url_helper = $url_helper;
 		$this->db = $db;
 		$this->request = $request;
+		$this->content_visibility = $content_visibility;
+		$this->cache = $cache;
 		$this->php_ext = $php_ext;
 	}
 
@@ -66,20 +71,72 @@ class listener implements EventSubscriberInterface
 	{
 		if ($this->forum_cache === null)
 		{
-			// Load all forum names and custom slugs (lightweight query)
-			$sql = 'SELECT forum_id, forum_name, vinny_url_forum_slug FROM ' . FORUMS_TABLE;
-			$result = $this->db->sql_query($sql, 7200); // Cache for 2 hours
+			// Load all forum names, custom slugs, and password flags (cached for 10 mins)
+			$sql = 'SELECT forum_id, forum_name, forum_password, vinny_url_forum_slug FROM ' . FORUMS_TABLE;
+			$result = $this->db->sql_query($sql, 600);
 			while ($row = $this->db->sql_fetchrow($result))
 			{
 				$this->forum_cache[(int) $row['forum_id']] = array(
-					'forum_name' => $row['forum_name'],
-					'forum_url'  => isset($row['vinny_url_forum_slug']) ? $row['vinny_url_forum_slug'] : '',
+					'forum_name'     => $row['forum_name'],
+					'forum_url'      => isset($row['vinny_url_forum_slug']) ? $row['vinny_url_forum_slug'] : '',
+					'forum_password' => !empty($row['forum_password']),
 				);
 			}
 			$this->db->sql_freeresult($result);
 		}
 
 		return isset($this->forum_cache[$forum_id]) ? $this->forum_cache[$forum_id] : false;
+	}
+
+	protected function is_forum_accessible($forum_id)
+	{
+		$forum_id = (int) $forum_id;
+		if (!$forum_id)
+		{
+			return false;
+		}
+
+		if (!$this->auth->acl_get('f_read', $forum_id))
+		{
+			return false;
+		}
+
+		$forum_data = $this->get_forum_data($forum_id);
+		if ($forum_data && $forum_data['forum_password'])
+		{
+			if ($this->unlocked_forums === null)
+			{
+				$this->load_unlocked_forums();
+			}
+
+			if (!isset($this->unlocked_forums[$forum_id]))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	protected function load_unlocked_forums()
+	{
+		$this->unlocked_forums = array();
+
+		if (empty($this->user->session_id))
+		{
+			return;
+		}
+
+		$sql = 'SELECT forum_id
+			FROM ' . FORUMS_ACCESS_TABLE . "
+			WHERE session_id = '" . $this->db->sql_escape($this->user->session_id) . "'
+				AND user_id = " . (int) $this->user->data['user_id'];
+		$result = $this->db->sql_query($sql);
+		while ($row = $this->db->sql_fetchrow($result))
+		{
+			$this->unlocked_forums[(int) $row['forum_id']] = true;
+		}
+		$this->db->sql_freeresult($result);
 	}
 
 	protected function get_forum_name_and_slug($forum_id)
@@ -101,11 +158,13 @@ class listener implements EventSubscriberInterface
 				array('resolve_member_url', 1),
 			),
 			'core.memberlist_view_profile'            => 'redirect_member_url',
-			'core.acp_manage_forums_request_data'     => 'acp_manage_forums_request_data',
-			'core.acp_manage_forums_initialise_data'  => 'acp_manage_forums_initialise_data',
-			'core.acp_manage_forums_display_form'     => 'acp_manage_forums_display_form',
-			'core.acp_manage_forums_validate_data'    => 'acp_manage_forums_validate_data',
-			'core.acp_manage_forums_update_data_after'=> 'acp_manage_forums_update_data_after',
+			'core.acp_manage_forums_request_data'      => 'acp_manage_forums_request_data',
+			'core.acp_manage_forums_initialise_data'   => 'acp_manage_forums_initialise_data',
+			'core.acp_manage_forums_display_form'      => 'acp_manage_forums_display_form',
+			'core.acp_manage_forums_validate_data'     => 'acp_manage_forums_validate_data',
+			'core.acp_manage_forums_update_data_after' => 'acp_manage_forums_update_data_after',
+			'core.acp_manage_forums_delete_forum_after'=> 'acp_manage_forums_update_data_after',
+			'core.acp_manage_forums_move_forums_after' => 'acp_manage_forums_update_data_after',
 			'core.append_sid'							=> 'rewrite_url',
 			'core.page_header'							=> 'handle_page_header',
 			'core.page_header_after'					=> 'redirect_url',
@@ -178,7 +237,7 @@ class listener implements EventSubscriberInterface
 		if ($title && $topic_id)
 		{
 			$new_url = $this->url_helper->generate_topic_link($topic_id, $title);
-			$topic_row['U_VIEW_TOPIC'] = $new_url;
+			$topic_row['U_VIEW_TOPIC'] = $this->get_board_url() . '/' . $new_url;
 			$event['topic_row'] = $topic_row;
 		}
 
@@ -189,8 +248,9 @@ class listener implements EventSubscriberInterface
 
 			if ($new_last_post_url)
 			{
-				$topic_row['U_LAST_POST'] = $new_last_post_url;
-				$topic_row['LAST_POST_LINK'] = $new_last_post_url; // Some styles use this
+				$full_last_post_url = $this->get_board_url() . '/' . $new_last_post_url;
+				$topic_row['U_LAST_POST'] = $full_last_post_url;
+				$topic_row['LAST_POST_LINK'] = $full_last_post_url; // Some styles use this
 				$event['topic_row'] = $topic_row;
 			}
 		}
@@ -213,7 +273,7 @@ class listener implements EventSubscriberInterface
 
 			if ($new_url)
 			{
-				$forum_row['U_LAST_POST'] = $new_url;
+				$forum_row['U_LAST_POST'] = $this->get_board_url() . '/' . $new_url;
 				$event['forum_row'] = $forum_row;
 			}
 		}
@@ -241,8 +301,9 @@ class listener implements EventSubscriberInterface
 
 			if ($new_url)
 			{
-				$post_row['U_MINI_POST'] = $new_url;
-				$post_row['U_MINI_POST_VIEW'] = $new_url;
+				$full_post_url = $this->get_board_url() . '/' . $new_url;
+				$post_row['U_MINI_POST'] = $full_post_url;
+				$post_row['U_MINI_POST_VIEW'] = $full_post_url;
 				$event['post_row'] = $post_row;
 			}
 		}
@@ -333,20 +394,51 @@ class listener implements EventSubscriberInterface
 		$event['tpl_ary'] = $tpl_ary;
 	}
 
-	protected function get_topic_title($topic_id)
+	protected function get_topic_data($topic_id)
 	{
-		if (isset($this->topic_cache[$topic_id]))
+		$topic_id = (int) $topic_id;
+		if (!$topic_id)
+		{
+			return false;
+		}
+
+		if (array_key_exists($topic_id, $this->topic_cache))
 		{
 			return $this->topic_cache[$topic_id];
 		}
 
-		$sql = 'SELECT topic_title FROM ' . TOPICS_TABLE . ' WHERE topic_id = ' . (int) $topic_id;
+		$sql = 'SELECT topic_id, forum_id, topic_title, topic_poster, topic_visibility
+			FROM ' . TOPICS_TABLE . '
+			WHERE topic_id = ' . (int) $topic_id;
 		$result = $this->db->sql_query($sql, 600);
-		$title = $this->db->sql_fetchfield('topic_title');
+		$row = $this->db->sql_fetchrow($result);
 		$this->db->sql_freeresult($result);
 
-		$this->topic_cache[$topic_id] = $title;
-		return $title;
+		if ($row)
+		{
+			$this->topic_forum_cache[$topic_id] = (int) $row['forum_id'];
+
+			// Ensure both forum is accessible (permissions/password) and content is visible (approved/not soft-deleted)
+			if ($this->is_forum_accessible((int) $row['forum_id']) && $this->content_visibility->is_visible('topic', (int) $row['forum_id'], $row))
+			{
+				$this->topic_cache[$topic_id] = $row;
+				return $row;
+			}
+		}
+
+		$this->topic_cache[$topic_id] = false;
+		return false;
+	}
+
+	protected function is_topic_accessible($topic_id)
+	{
+		return $this->get_topic_data($topic_id) !== false;
+	}
+
+	protected function get_topic_title($topic_id)
+	{
+		$topic_data = $this->get_topic_data($topic_id);
+		return $topic_data ? $topic_data['topic_title'] : '';
 	}
 
 	protected function get_forum_id_from_topic($topic_id)
@@ -354,6 +446,12 @@ class listener implements EventSubscriberInterface
 		if (isset($this->topic_forum_cache[$topic_id]))
 		{
 			return $this->topic_forum_cache[$topic_id];
+		}
+
+		$topic_data = $this->get_topic_data($topic_id);
+		if ($topic_data)
+		{
+			return (int) $topic_data['forum_id'];
 		}
 
 		$sql = 'SELECT forum_id FROM ' . TOPICS_TABLE . ' WHERE topic_id = ' . (int) $topic_id;
@@ -372,7 +470,7 @@ class listener implements EventSubscriberInterface
 			return $this->post_topic_cache[$post_id];
 		}
 
-		$sql = 'SELECT t.topic_id, t.forum_id, t.topic_title
+		$sql = 'SELECT t.topic_id, t.forum_id, t.topic_title, t.topic_poster, t.topic_visibility, p.poster_id, p.post_visibility
 				FROM ' . POSTS_TABLE . ' p
 				JOIN ' . TOPICS_TABLE . ' t ON p.topic_id = t.topic_id
 				WHERE p.post_id = ' . (int) $post_id;
@@ -381,12 +479,14 @@ class listener implements EventSubscriberInterface
 		$row = $this->db->sql_fetchrow($result);
 		$this->db->sql_freeresult($result);
 
-		if ($row)
+		if ($row && $this->is_forum_accessible((int) $row['forum_id']) && $this->content_visibility->is_visible('topic', (int) $row['forum_id'], $row) && $this->content_visibility->is_visible('post', (int) $row['forum_id'], $row))
 		{
 			$this->post_topic_cache[$post_id] = $row;
 			$this->topic_forum_cache[$row['topic_id']] = (int) $row['forum_id'];
 			return $row;
 		}
+
+		$this->post_topic_cache[$post_id] = false;
 		return false;
 	}
 
@@ -473,6 +573,16 @@ class listener implements EventSubscriberInterface
 		return $friendly_url ? $this->get_board_url() . '/' . $friendly_url : $url;
 	}
 
+	protected function get_current_script_name()
+	{
+		$page_name = isset($this->user->page['page_name']) ? (string) $this->user->page['page_name'] : '';
+		if (($pos = strpos($page_name, '/')) !== false)
+		{
+			$page_name = substr($page_name, 0, $pos);
+		}
+		return $page_name;
+	}
+
 	protected function get_script_name_from_url($url)
 	{
 		$path = parse_url($url, PHP_URL_PATH);
@@ -480,6 +590,11 @@ class listener implements EventSubscriberInterface
 		if ($path === null || $path === false)
 		{
 			return '';
+		}
+
+		if (preg_match('/(?:^|\/)(viewtopic|viewforum|memberlist)\.' . preg_quote($this->php_ext, '/') . '(?:\/|$)/i', $path, $matches))
+		{
+			return $matches[1] . '.' . $this->php_ext;
 		}
 
 		return basename($path);
@@ -759,24 +874,24 @@ class listener implements EventSubscriberInterface
 			return $html;
 		}
 
-		// Rewrite viewtopic.php links (HTML, XML, JSON, text)
+		// Rewrite viewtopic.php links (including viewtopic.php/slug)
 		if (strpos($html, 'viewtopic.' . $this->php_ext) !== false)
 		{
-			$topic_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?viewtopic\.' . preg_quote($this->php_ext, '~') . '\?[^\s\]\)"<>\']+~i';
+			$topic_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?viewtopic\.' . preg_quote($this->php_ext, '~') . '(?:/[^\s\]\)"<>\?]*?)?\?[^\s\]\)"<>\']+~i';
 			$html = preg_replace_callback($topic_pattern, array($this, 'rewrite_html_topic_link'), $html);
 		}
 
-		// Rewrite viewforum.php links (HTML, XML, JSON, text)
+		// Rewrite viewforum.php links (including viewforum.php/slug)
 		if (strpos($html, 'viewforum.' . $this->php_ext) !== false)
 		{
-			$forum_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?viewforum\.' . preg_quote($this->php_ext, '~') . '\?[^\s\]\)"<>\']+~i';
+			$forum_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?viewforum\.' . preg_quote($this->php_ext, '~') . '(?:/[^\s\]\)"<>\?]*?)?\?[^\s\]\)"<>\']+~i';
 			$html = preg_replace_callback($forum_pattern, array($this, 'rewrite_html_forum_link'), $html);
 		}
 
-		// Rewrite member profile links (HTML, XML, JSON, text)
+		// Rewrite member profile links (including memberlist.php/slug)
 		if (!empty($this->config['vinny_url_members_enable']) && strpos($html, 'memberlist.' . $this->php_ext) !== false)
 		{
-			$member_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?memberlist\.' . preg_quote($this->php_ext, '~') . '\?[^\s\]\)"<>\']+~i';
+			$member_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?memberlist\.' . preg_quote($this->php_ext, '~') . '(?:/[^\s\]\)"<>\?]*?)?\?[^\s\]\)"<>\']+~i';
 			$html = preg_replace_callback($member_pattern, array($this, 'rewrite_html_member_link'), $html);
 		}
 
@@ -785,6 +900,18 @@ class listener implements EventSubscriberInterface
 		{
 			$broken_post_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?([^\s\]\)"<>\']+?-t(\d+))(?:&amp;|&|\?)p=(\d+)(#p\3)?~i';
 			$html = preg_replace_callback($broken_post_pattern, array($this, 'fix_malformed_post_link'), $html);
+		}
+
+		// Strip any leftover viewtopic.php/ or viewforum.php/ preceding friendly slugs
+		if (strpos($html, 'viewtopic.' . $this->php_ext . '/') !== false || strpos($html, 'viewforum.' . $this->php_ext . '/') !== false)
+		{
+			$prefix_pattern = '~(?:(?:https?:)?//[^\s\]\)"<>\']*?/|\.\./|\./|/)?(?:viewtopic|viewforum)\.' . preg_quote($this->php_ext, '~') . '/([^\s\]\)"<>\?]+)(\?[^\s\]\)"<>]*)?~i';
+			$html = preg_replace_callback($prefix_pattern, function ($matches)
+			{
+				$slug = $matches[1];
+				$query = isset($matches[2]) ? $matches[2] : '';
+				return $this->get_board_url() . '/' . ltrim($slug, '/') . $query;
+			}, $html);
 		}
 
 		return $html;
@@ -958,7 +1085,7 @@ class listener implements EventSubscriberInterface
 			return;
 		}
 
-		$script_name = isset($this->user->page['page_name']) ? $this->user->page['page_name'] : '';
+		$script_name = $this->get_current_script_name();
 		$request_uri = $this->request->server('REQUEST_URI');
 		$topic_id = $this->request->variable('t', 0);
 		$post_id = $this->request->variable('p', 0);
@@ -984,6 +1111,11 @@ class listener implements EventSubscriberInterface
 		if (!$forum_id)
 		{
 			$forum_id = $this->get_forum_id_from_topic($topic_id);
+		}
+
+		if (!$this->is_forum_accessible($forum_id))
+		{
+			return;
 		}
 
 		$start = $this->request->variable('start', 0);
@@ -1012,7 +1144,7 @@ class listener implements EventSubscriberInterface
 			$bookmark_url = $this->build_topic_url($params, true);
 			if ($bookmark_url)
 			{
-				$this->template->assign_var('U_BOOKMARK_TOPIC', $bookmark_url);
+				$this->template->assign_var('U_BOOKMARK_TOPIC', $this->get_board_url() . '/' . $bookmark_url);
 			}
 		}
 
@@ -1031,7 +1163,7 @@ class listener implements EventSubscriberInterface
 			$print_url = $this->build_topic_url($params, true);
 			if ($print_url)
 			{
-				$this->template->assign_var('U_PRINT_TOPIC', $print_url);
+				$this->template->assign_var('U_PRINT_TOPIC', $this->get_board_url() . '/' . $print_url);
 			}
 		}
 	}
@@ -1053,7 +1185,7 @@ class listener implements EventSubscriberInterface
 			return;
 		}
 
-		$script_name = $this->user->page['page_name'];
+		$script_name = $this->get_current_script_name();
 
 		if (!$this->is_open_graph_page($script_name))
 		{
@@ -1061,6 +1193,23 @@ class listener implements EventSubscriberInterface
 		}
 
 		$page_data = $this->get_open_graph_page_data($script_name);
+
+		if ($page_data['mode'] === 'topic' && $page_data['id'])
+		{
+			$forum_id = $this->get_forum_id_from_topic($page_data['id']);
+			if (!$this->is_forum_accessible($forum_id))
+			{
+				return;
+			}
+		}
+		else if ($page_data['mode'] === 'forum' && $page_data['id'])
+		{
+			if (!$this->is_forum_accessible($page_data['id']))
+			{
+				return;
+			}
+		}
+
 		$og_data = $this->get_open_graph_data($script_name, $page_data);
 
 		$this->template->assign_vars(array(
@@ -1075,18 +1224,20 @@ class listener implements EventSubscriberInterface
 
 	protected function is_open_graph_page($script_name)
 	{
-		return strpos($script_name, 'index.' . $this->php_ext) === 0 ||
-			strpos($script_name, 'viewforum.' . $this->php_ext) === 0 ||
-			strpos($script_name, 'viewtopic.' . $this->php_ext) === 0;
+		$script_name = $this->get_current_script_name();
+		return $script_name === 'index.' . $this->php_ext ||
+			$script_name === 'viewforum.' . $this->php_ext ||
+			$script_name === 'viewtopic.' . $this->php_ext;
 	}
 
 	protected function get_open_graph_page_data($script_name)
 	{
+		$script_name = $this->get_current_script_name();
 		$id = 0;
 		$mode = '';
 		$post_id = 0;
 
-		if (strpos($script_name, 'viewtopic.' . $this->php_ext) === 0)
+		if ($script_name === 'viewtopic.' . $this->php_ext)
 		{
 			$id = $this->request->variable('t', 0);
 			$post_id = $this->request->variable('p', 0);
@@ -1101,12 +1252,12 @@ class listener implements EventSubscriberInterface
 				}
 			}
 		}
-		else if (strpos($script_name, 'viewforum.' . $this->php_ext) === 0)
+		else if ($script_name === 'viewforum.' . $this->php_ext)
 		{
 			$id = $this->request->variable('f', 0);
 			$mode = 'forum';
 		}
-		else if (strpos($script_name, 'index.' . $this->php_ext) === 0)
+		else if ($script_name === 'index.' . $this->php_ext)
 		{
 			$mode = 'index';
 		}
@@ -1171,7 +1322,7 @@ class listener implements EventSubscriberInterface
 		$sql = 'SELECT forum_desc
 			FROM ' . FORUMS_TABLE . '
 			WHERE forum_id = ' . (int) $forum_id;
-		$result = $this->db->sql_query($sql, 7200);
+		$result = $this->db->sql_query($sql, 600);
 		$row = $this->db->sql_fetchrow($result);
 		$this->db->sql_freeresult($result);
 
@@ -1192,7 +1343,7 @@ class listener implements EventSubscriberInterface
 			'image'			=> '',
 		);
 
-		$sql = 'SELECT p.post_text, p.post_id, p.bbcode_uid, p.bbcode_bitfield, p.enable_bbcode, p.enable_smilies, p.enable_magic_url
+		$sql = 'SELECT p.post_text, p.post_id, p.bbcode_uid, p.bbcode_bitfield, p.enable_bbcode, p.enable_smilies, p.enable_magic_url, p.poster_id, p.post_visibility, t.forum_id
 			FROM ' . TOPICS_TABLE . ' t
 			JOIN ' . POSTS_TABLE . ' p ON t.topic_first_post_id = p.post_id
 			WHERE t.topic_id = ' . (int) $topic_id;
@@ -1200,7 +1351,7 @@ class listener implements EventSubscriberInterface
 		$row = $this->db->sql_fetchrow($result);
 		$this->db->sql_freeresult($result);
 
-		if (!$row)
+		if (!$row || !$this->content_visibility->is_visible('post', (int) $row['forum_id'], $row))
 		{
 			return $data;
 		}
@@ -1229,7 +1380,9 @@ class listener implements EventSubscriberInterface
 
 		if ($limit && mb_strlen($text) > $limit)
 		{
-			$text = mb_substr($text, 0, $limit - 3) . '...';
+			$ellipsis = $this->user->lang('ELLIPSIS');
+			$ellipsis_len = mb_strlen($ellipsis);
+			$text = mb_substr($text, 0, max(0, $limit - $ellipsis_len)) . $ellipsis;
 		}
 
 		return $text;
@@ -1302,7 +1455,12 @@ class listener implements EventSubscriberInterface
 			return;
 		}
 
-		$script_name = $this->user->page['page_name'];
+		if ($this->request->is_set_post('login') || $this->request->server('REQUEST_METHOD') === 'POST')
+		{
+			return;
+		}
+
+		$script_name = $this->get_current_script_name();
 		if ($script_name !== 'viewtopic.' . $this->php_ext && $script_name !== 'viewforum.' . $this->php_ext)
 		{
 			return;
@@ -1314,19 +1472,53 @@ class listener implements EventSubscriberInterface
 			return;
 		}
 
-		$query_params = $this->get_redirect_query_params(($script_name === 'viewtopic.' . $this->php_ext) ? array('f', 't', 'p', 'sid') : array('f', 'sid'));
-		$friendly_params = $query_params;
-		$friendly_params['#'] = '';
-
 		if ($script_name === 'viewtopic.' . $this->php_ext)
 		{
-			$friendly_params['t'] = $this->request->variable('t', 0);
-			$friendly_params['p'] = $this->request->variable('p', 0);
+			$topic_id = $this->request->variable('t', 0);
+			$post_id = $this->request->variable('p', 0);
+			$forum_id = $this->request->variable('f', 0);
+
+			if (!$topic_id && $post_id)
+			{
+				$topic_info = $this->get_topic_info_from_post($post_id);
+				$topic_id = $topic_info ? (int) $topic_info['topic_id'] : 0;
+				$forum_id = (!$forum_id && $topic_info) ? (int) $topic_info['forum_id'] : $forum_id;
+			}
+
+			if (!$topic_id)
+			{
+				return;
+			}
+
+			if (!$forum_id)
+			{
+				$forum_id = $this->get_forum_id_from_topic($topic_id);
+			}
+
+			if (!$this->is_forum_accessible($forum_id))
+			{
+				return;
+			}
+
+			$query_params = $this->get_redirect_query_params(array('f', 't', 'p', 'sid'));
+			$friendly_params = $query_params;
+			$friendly_params['#'] = '';
+			$friendly_params['t'] = $topic_id;
+			$friendly_params['p'] = $post_id;
 			$friendly_url = $this->build_topic_url($friendly_params, false);
 		}
 		else
 		{
-			$friendly_params['f'] = $this->request->variable('f', 0);
+			$forum_id = $this->request->variable('f', 0);
+			if (!$forum_id || !$this->is_forum_accessible($forum_id))
+			{
+				return;
+			}
+
+			$query_params = $this->get_redirect_query_params(array('f', 'sid'));
+			$friendly_params = $query_params;
+			$friendly_params['#'] = '';
+			$friendly_params['f'] = $forum_id;
 			$friendly_url = $this->build_forum_url($friendly_params, false);
 		}
 
@@ -1435,6 +1627,7 @@ class listener implements EventSubscriberInterface
 	public function acp_manage_forums_update_data_after($event)
 	{
 		$this->forum_cache = null;
+		$this->cache->destroy('sql', FORUMS_TABLE);
 	}
 
 	public function resolve_forum_url($event)
@@ -1459,7 +1652,7 @@ class listener implements EventSubscriberInterface
 		$forum_id = 0;
 
 		$sql = 'SELECT forum_id, forum_name, vinny_url_forum_slug FROM ' . FORUMS_TABLE;
-		$result = $this->db->sql_query($sql, 7200);
+		$result = $this->db->sql_query($sql, 600);
 		while ($row = $this->db->sql_fetchrow($result))
 		{
 			$custom_url = !empty($row['vinny_url_forum_slug']) ? $this->url_helper->clean_url($row['vinny_url_forum_slug']) : '';
