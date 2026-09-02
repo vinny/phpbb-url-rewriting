@@ -186,4 +186,8 @@ rewrite ^/member/(.+)$ /memberlist.php?mode=viewprofile&un=$1 permanent;
 	'ACP_URLREWRITING_FAQ_UNINSTALL_TEXT'   => 'The rules below redirect friendly URLs back to standard phpBB URLs using permanent 301 redirects.',
 	'ACP_URLREWRITING_FAQ_FALLBACK_APACHE'  => 'Fallback rules for Apache',
 	'ACP_URLREWRITING_FAQ_FALLBACK_NGINX'   => 'Fallback rules for NGINX',
+
+	// Support
+	'VINNY_URLREWRITING_SUPPORT_STAR'       => 'If you like this extension, please give it a star on <a href="https://github.com/vinny/phpbb-url-rewriting" target="_blank" rel="noopener"><i class="icon fa fa-github fa-fw" aria-hidden="true"></i>GitHub</a>.',
+	'VINNY_URLREWRITING_SUPPORT_DONATE'     => 'If you find it useful, you can also support its development with an optional <a href="https://ko-fi.com/vinny1" target="_blank" rel="noopener"><i class="icon fa fa-heart fa-fw" aria-hidden="true"></i>donation</a>.',
 ));
