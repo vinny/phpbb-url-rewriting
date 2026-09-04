@@ -10,8 +10,6 @@
 
 namespace vinny\urlrewriting\tests\event;
 
-use Symfony\Component\HttpKernel\KernelEvents;
-
 class listener_test extends \phpbb_test_case
 {
 	/** @var \vinny\urlrewriting\event\listener */
@@ -106,6 +104,24 @@ class listener_test extends \phpbb_test_case
 		$this->assertArrayHasKey('core.approve_topics_after', $events);
 		$this->assertArrayHasKey('core.disapprove_posts_after', $events);
 		$this->assertArrayHasKey('core.feed_modify_feed_row', $events);
+		$this->assertArrayHasKey('core.acp_manage_forums_update_data_after', $events);
+
+		foreach ($events as $event_name => $handler)
+		{
+			$this->assertStringStartsWith('core.', $event_name);
+			if (is_string($handler))
+			{
+				$this->assertTrue(method_exists($this->listener, $handler), "Handler {$handler} does not exist on listener for event {$event_name}");
+			}
+			else if (is_array($handler))
+			{
+				foreach ($handler as $sub_handler)
+				{
+					$method = is_array($sub_handler) ? $sub_handler[0] : $sub_handler;
+					$this->assertTrue(method_exists($this->listener, $method), "Handler {$method} does not exist on listener for event {$event_name}");
+				}
+			}
+		}
 	}
 
 	public function test_process_html_output_disabled()

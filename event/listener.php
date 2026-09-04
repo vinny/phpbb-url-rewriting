@@ -163,8 +163,6 @@ class listener implements EventSubscriberInterface
 			'core.acp_manage_forums_display_form'      => 'acp_manage_forums_display_form',
 			'core.acp_manage_forums_validate_data'     => 'acp_manage_forums_validate_data',
 			'core.acp_manage_forums_update_data_after' => 'acp_manage_forums_update_data_after',
-			'core.acp_manage_forums_delete_forum_after'=> 'acp_manage_forums_update_data_after',
-			'core.acp_manage_forums_move_forums_after' => 'acp_manage_forums_update_data_after',
 			'core.append_sid'							=> 'rewrite_url',
 			'core.page_header'							=> 'handle_page_header',
 			'core.page_header_after'					=> 'redirect_url',
