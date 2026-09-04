@@ -146,4 +146,35 @@ class url_helper_test extends \phpbb_test_case
 		$this->config['vinny_url_rewrite_enable'] = 0;
 		$this->assertFalse($this->url_helper->is_enabled());
 	}
+
+	public function test_forum_path_with_db_custom_slug()
+	{
+		$db = $this->createMock(\phpbb\db\driver\driver_interface::class);
+		$result = 'result_resource';
+
+		$db->expects($this->once())
+			->method('sql_query')
+			->willReturn($result);
+
+		$db->expects($this->exactly(2))
+			->method('sql_fetchrow')
+			->with($result)
+			->willReturnOnConsecutiveCalls(
+				array('forum_id' => 45, 'vinny_url_forum_slug' => 'custom-forum-name'),
+				false
+			);
+
+		$db->expects($this->once())
+			->method('sql_freeresult')
+			->with($result);
+
+		$helper = new \vinny\urlrewriting\helper\url_helper($this->config, $db);
+
+		// First call should query DB and use custom slug
+		$this->assertSame('custom-forum-name-f45', $helper->forum_path(45, 'General Discussion'));
+
+		// Second call for a forum without custom slug should use the forum name
+		$this->assertSame('announcements-f99', $helper->forum_path(99, 'Announcements'));
+	}
 }
+

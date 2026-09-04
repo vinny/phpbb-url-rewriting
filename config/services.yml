@@ -19,6 +19,7 @@ services:
         class: vinny\urlrewriting\helper\url_helper
         arguments:
             - '@config'
+            - '@dbal.conn'
 
     vinny.urlrewriting.textformatter.quote_helper:
         class: vinny\urlrewriting\textformatter\s9e\quote_helper

@@ -15,6 +15,12 @@ class url_helper
 	/** @var \phpbb\config\config */
 	protected $config;
 
+	/** @var \phpbb\db\driver\driver_interface|null */
+	protected $db;
+
+	/** @var array|null */
+	protected $forum_slugs;
+
 	/** @var \Transliterator|null */
 	protected $transliterator;
 
@@ -22,10 +28,12 @@ class url_helper
 	 * Constructor
 	 *
 	 * @param \phpbb\config\config $config
+	 * @param \phpbb\db\driver\driver_interface|null $db
 	 */
-	public function __construct(\phpbb\config\config $config)
+	public function __construct(\phpbb\config\config $config, \phpbb\db\driver\driver_interface $db = null)
 	{
 		$this->config = $config;
+		$this->db = $db;
 	}
 
 	/**
@@ -152,6 +160,11 @@ class url_helper
 
 		if ($mode === 1)
 		{
+			if ($custom_slug === '' && $forum_id > 0 && $this->db !== null)
+			{
+				$custom_slug = $this->get_forum_custom_slug($forum_id);
+			}
+
 			if ($custom_slug !== '')
 			{
 				$slug = $this->clean_url($custom_slug);
@@ -166,6 +179,31 @@ class url_helper
 		}
 
 		return "forum-f{$forum_id}";
+	}
+
+	/**
+	 * Get custom forum slug from database if configured
+	 *
+	 * @param int $forum_id
+	 * @return string
+	 */
+	public function get_forum_custom_slug($forum_id)
+	{
+		$forum_id = (int) $forum_id;
+
+		if ($this->forum_slugs === null && $this->db !== null)
+		{
+			$this->forum_slugs = array();
+			$sql = 'SELECT forum_id, vinny_url_forum_slug FROM ' . FORUMS_TABLE . " WHERE vinny_url_forum_slug <> ''";
+			$result = $this->db->sql_query($sql, 600);
+			while ($row = $this->db->sql_fetchrow($result))
+			{
+				$this->forum_slugs[(int) $row['forum_id']] = (string) $row['vinny_url_forum_slug'];
+			}
+			$this->db->sql_freeresult($result);
+		}
+
+		return isset($this->forum_slugs[$forum_id]) ? $this->forum_slugs[$forum_id] : '';
 	}
 
 	/**
@@ -207,9 +245,9 @@ class url_helper
 		return $this->generate_topic_link($topic_id, $topic_title);
 	}
 
-	public function forum_path($forum_id, $forum_name = '')
+	public function forum_path($forum_id, $forum_name = '', $custom_slug = '')
 	{
-		return $this->generate_forum_link($forum_id, $forum_name);
+		return $this->generate_forum_link($forum_id, $forum_name, $custom_slug);
 	}
 
 	public function post_path($post_id, $topic_id = 0, $topic_title = '')
